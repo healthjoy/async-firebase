@@ -1,6 +1,6 @@
 [run]
 source =
-    ./src
+    ./async_firebase
 omit =
     # omit tests
     */tests/*
