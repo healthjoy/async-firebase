@@ -1,16 +1,11 @@
 # Async Firebase Cloud Messaging client
 
-.. image:: https://img.shields.io/pypi/v/async-firebase?logo=python&logoColor=white
-        :alt: PyPI Release Version
-        :target: https://pypi.python.org/pypi/async-firebase
-
-.. image:: https://img.shields.io/pypi/dm/async-firebase?logo=pypi&logoColor=white
-        :alt: PyPI Monthly Downloads
-        :target: https://pypi.python.org/pypi/async-firebase
-
-.. image:: https://img.shields.io/github/workflow/status/healthjoy/async-firebase/CI?label=CI&logo=github
-        :alt: GitHub Workflow Status for CI
-        :target: https://github.com/healthjoy/async-firebase/actions?query=workflow%3ACI
+[![PyPI download total](https://img.shields.io/pypi/dt/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
+[![PyPI download month](https://img.shields.io/pypi/dm/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
+[![PyPI version fury.io](https://badge.fury.io/py/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
+[![PyPI license](https://img.shields.io/pypi/l/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
+[![GitHub Workflow Status for CI](https://img.shields.io/github/workflow/status/healthjoy/async-firebase/CI?label=CI&logo=github)](https://github.com/healthjoy/async-firebase/actions?query=workflow%3ACI)
 
 ## Getting started
 TBD...
