@@ -6,12 +6,15 @@
 [![PyPI license](https://img.shields.io/pypi/l/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
 [![GitHub Workflow Status for CI](https://img.shields.io/github/workflow/status/healthjoy/async-firebase/CI?label=CI&logo=github)](https://github.com/healthjoy/async-firebase/actions?query=workflow%3ACI)
-[![codecov.io status for master branch](https://codecov.io/gh/healthjoy/async-firebase/branch/master/graph/badge.svg)](https://codecov.io/gh/healthjoy/async-firebase)
+[![Codacy coverage](https://img.shields.io/codacy/coverage/b6a59cdf5ca64eab9104928d4f9bbb97?logo=codacy)](https://app.codacy.com/gh/healthjoy/async-firebase/dashboard)
+
 Async Firebase - is a lightweight asynchronous client to interact with Firebase.
 
 * Free software: MIT license
 * Requires: Python 3.6+
 
+## Features
+ TBD...
 
 ## Installation
 ```shell script
