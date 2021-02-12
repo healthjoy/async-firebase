@@ -10,8 +10,8 @@
 
 Async Firebase - is a lightweight asynchronous client to interact with Firebase.
 
-* Free software: MIT license
-* Requires: Python 3.6+
+  * Free software: MIT license
+  * Requires: Python 3.6+
 
 ## Features
  TBD...
