@@ -98,5 +98,12 @@ jobs:
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1
 
-      - name: pytest
+      - name: Run pytest
         run: pytest tests/
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          flags: unit
+          fail_ci_if_error: false
