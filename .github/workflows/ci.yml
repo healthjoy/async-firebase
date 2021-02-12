@@ -1,0 +1,72 @@
+name: CI
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  create-virtualenv:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.6', '3.7', '3.8', '3.9' ]
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+        env:
+          POETRY_VERSION: 1.1.4
+        run: |
+          pip install pip==20.3.1 setuptools==50.3.2
+          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+          source $HOME/.poetry/env
+          poetry install --no-interaction -vv
+
+      - name: Log currently installed packages and versions
+        run: pip list
+
+  lint:
+    needs: create-virtualenv
+    runs-on: ubuntu-latest
+    steps:
+      - name: source code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+
+      - name: Check code style
+        run: black --check --diff async_firebase
+
+  test:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ 3.6', '3.7', '3.8', '3.9' ]
+    steps:
+      - name: source code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: pytest
+        run: pytest
