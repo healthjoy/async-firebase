@@ -48,7 +48,7 @@ jobs:
       - name: Log currently installed packages and versions
         run: pip list
 
-  lint:black:
+  linters-black:
     needs: create-virtualenv
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +64,7 @@ jobs:
       - name: Check code style
         run: black --check --diff async_firebase
 
-  lint:mypy:
+  linters-mypy:
     needs: create-virtualenv
     runs-on: ubuntu-latest
     steps:
@@ -81,7 +81,7 @@ jobs:
         run: mypy --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
 
   test:
-    needs: [ 'lint:black', 'lint:mypy' ]
+    needs: [ linters-black, linters-mypy ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
