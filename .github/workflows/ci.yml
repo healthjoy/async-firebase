@@ -48,7 +48,7 @@ jobs:
       - name: Log currently installed packages and versions
         run: pip list
 
-  lint:
+  lint:black:
     needs: create-virtualenv
     runs-on: ubuntu-latest
     steps:
@@ -64,8 +64,24 @@ jobs:
       - name: Check code style
         run: black --check --diff async_firebase
 
+  lint:mypy:
+    needs: create-virtualenv
+    runs-on: ubuntu-latest
+    steps:
+      - name: source code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+
+      - name: virtualenv cache
+        uses: syphar/restore-virtualenv@v1
+
+      - name: Static type checker
+        run: mypy --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
+
   test:
-    needs: [lint]
+    needs: [ 'lint:black', 'lint:mypy' ]
     runs-on: ubuntu-latest
     strategy:
       matrix:

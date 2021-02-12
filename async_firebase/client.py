@@ -31,7 +31,11 @@ class AsyncFirebaseClient:
         "https://www.googleapis.com/auth/cloud-platform",
     ]
 
-    def __init__(self, credentials: service_account.Credentials = None, scopes: t.List[str] = None) -> None:
+    def __init__(
+        self,
+        credentials: service_account.Credentials = None,
+        scopes: t.List[str] = None,
+    ) -> None:
         """
         :param credentials: instance of ``google.oauth2.service_account.Credentials``.
             Usually, you'll create these credentials with one of the helper constructors. To create credentials using a
@@ -93,7 +97,10 @@ class AsyncFirebaseClient:
                 "android": {},
                 "apns": {},
                 "condition": None,
-                "data": {"push_id": str(uuid.uuid4()), "time": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")},
+                "data": {
+                    "push_id": str(uuid.uuid4()),
+                    "time": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+                },
                 "notification": {},
                 "token": None,
                 "topic": None,
@@ -324,7 +331,10 @@ class AsyncFirebaseClient:
 
         fcm_message: t.Dict[str, t.Any] = self.build_common_message()
         fcm_message["message"]["token"] = device_token
-        fcm_message["message"]["notification"] = {"title": notification_title, "body": notification_body}
+        fcm_message["message"]["notification"] = {
+            "title": notification_title,
+            "body": notification_body,
+        }
         if notification_data:
             fcm_message["message"]["data"].update(notification_data)
 
