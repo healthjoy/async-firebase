@@ -1,6 +1,6 @@
 name: CI
 
-# Controls when the action will run. 
+# Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
@@ -27,6 +27,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: virtualenv cache
+        uses: syphar/restore-virtualenv@v1
+        id: cache-virtualenv
+
+      - name: pip cache
+        uses: syphar/restore-pip-download-cache@v1
+        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
@@ -50,6 +58,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
 
+      - name: virtualenv cache
+        uses: syphar/restore-virtualenv@v1
+
       - name: Check code style
         run: black --check --diff async_firebase
 
@@ -67,6 +78,9 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: virtualenv cache
+        uses: syphar/restore-virtualenv@v1
 
       - name: pytest
         run: pytest
