@@ -4,6 +4,7 @@ source =
 omit =
     # omit tests
     */tests/*
+    */__init__.py
 
 [report]
 # Regexes for lines to exclude from consideration

@@ -7,16 +7,14 @@ import logging
 import typing as t
 import uuid
 from datetime import datetime
+from pathlib import PurePath
 from urllib.parse import urljoin
 
 import httpx
 from google.auth.transport.requests import Request as GoogleRequest  # type: ignore
 from google.oauth2 import service_account  # type: ignore
 
-from async_firebase.utils import coroutine, remove_null_values
-
-
-logger = logging.getLogger(__name__)
+from .utils import make_async, remove_null_values
 
 
 class AsyncFirebaseClient:
@@ -33,11 +31,22 @@ class AsyncFirebaseClient:
         "https://www.googleapis.com/auth/cloud-platform",
     ]
 
-    def __init__(self, scopes: t.List[str] = None) -> None:
+    def __init__(self, credentials: service_account.Credentials = None, scopes: t.List[str] = None) -> None:
         """
+        :param credentials: instance of ``google.oauth2.service_account.Credentials``.
+            Usually, you'll create these credentials with one of the helper constructors. To create credentials using a
+            Google service account private key JSON file::
+
+                self.creds_from_service_account_file('service-account.json')
+
+            Or if you already have the service account file loaded::
+
+                service_account_info = json.load(open('service_account.json'))
+                self.creds_from_service_account_info(service_account_info)
+
         :param scopes: user-defined scopes to request during the authorization grant.
         """
-        self._credentials: t.Type[service_account.Credentials] = service_account.Credentials
+        self._credentials = credentials
         self.scopes = scopes or self.SCOPES
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
@@ -49,27 +58,32 @@ class AsyncFirebaseClient:
             info=service_account_info, scopes=self.scopes
         )
 
-    def creds_from_service_account_file(self, service_account_filename: t.Union[str]) -> None:
+    def creds_from_service_account_file(self, service_account_filename: t.Union[str, PurePath]) -> None:
         """Creates a Credentials instance from a service account json file.
 
         :param service_account_filename: the path to the service account json file.
         """
+        if isinstance(service_account_filename, PurePath):
+            service_account_filename = str(service_account_filename)
+
         self._credentials = service_account.Credentials.from_service_account_file(
             filename=service_account_filename, scopes=self.scopes
         )
 
-    @coroutine
+    @make_async
     def _get_access_token(self) -> t.Coroutine[t.Any, t.Any, t.Any]:
         """Retrieve a valid access token that can be used to authorize requests.
         :return: Access token
         """
-        if self._credentials.valid:
-            return self._credentials.token
+        if self._credentials.valid:  # type: ignore
+            return self._credentials.token  # type: ignore
 
         request = GoogleRequest()
-        self._credentials.refresh(request)
-        logger.debug("Obtained access token %s that can be used to authorize requests.", self._credentials.token)
-        return self._credentials.token
+        self._credentials.refresh(request)  # type: ignore
+        logging.debug(
+            "Obtained access token %s that can be used to authorize requests.", self._credentials.token  # type: ignore
+        )
+        return self._credentials.token  # type: ignore
 
     @staticmethod
     def build_common_message() -> t.Dict[str, t.Dict[str, t.Any]]:
@@ -232,7 +246,7 @@ class AsyncFirebaseClient:
 
     async def _prepare_headers(self):
         """Prepare HTTP headers that will be used to request Firebase Cloud Messaging."""
-        logger.debug("Preparing HTTP headers for all the subsequent requests")
+        logging.debug("Preparing HTTP headers for all the subsequent requests")
         access_token: str = await self._get_access_token()
         return {
             "Authorization": f"Bearer {access_token}",
@@ -337,8 +351,10 @@ class AsyncFirebaseClient:
             fcm_message["validate_only"] = True
 
         async with httpx.AsyncClient() as client:
-            url = urljoin(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id))
-            logger.debug("Requesting POST %s", url)
+            url = urljoin(
+                self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
+            )
+            logging.debug("Requesting POST %s", url)
             response: httpx.Response = await client.post(url, json=fcm_message, headers=await self._prepare_headers())
 
         return response.json()

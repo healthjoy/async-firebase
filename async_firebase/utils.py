@@ -4,7 +4,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial, wraps
 
 
-def coroutine(func):
+def make_async(func: t.Callable):
     @wraps(func)
     async def run(
         *args,
