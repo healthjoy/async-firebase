@@ -99,4 +99,4 @@ jobs:
         uses: syphar/restore-virtualenv@v1
 
       - name: pytest
-        run: pytest
+        run: pytest tests/
