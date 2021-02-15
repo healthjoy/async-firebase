@@ -1,12 +1,10 @@
 name: CD
 
 on:
-  push:
+  pull_request:
     branches:
       - "master"
       - "ci"
-    tags:
-      - "v[0-9]+.[0-9]+"
       - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
