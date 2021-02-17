@@ -16,10 +16,10 @@
 
   * Extremely lightweight and does not rely on ``firebase-admin`` which is hefty
   * Send push notifications to Android and iOS devices
-  * Ability to set TTL (time to live) for notifications
-  * Ability to set priority for notifications
-  * Ability to set collapse-key for notifications
-  * Ability to test the request without actually delivering the message a.k.a dry-dun mode
+  * Set TTL (time to live) for notifications
+  * Set priority for notifications
+  * Set collapse-key for notifications
+  * Dry-run mode for testing purpose
 
 ## Installation
 ```shell script
