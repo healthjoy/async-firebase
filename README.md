@@ -1,4 +1,4 @@
-# async-firebase - Is a lightweight asynchronous client to interact with Firebase Cloud Messaging platform.
+# async-firebase is a lightweight asynchronous client to interact with Firebase Cloud Messaging for sending push notification to Android and iOS devices
 
 [![PyPI download total](https://img.shields.io/pypi/dt/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
 [![PyPI download month](https://img.shields.io/pypi/dm/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
@@ -8,16 +8,14 @@
 [![GitHub Workflow Status for CI](https://img.shields.io/github/workflow/status/healthjoy/async-firebase/CI?label=CI&logo=github)](https://github.com/healthjoy/async-firebase/actions?query=workflow%3ACI)
 [![Codacy coverage](https://img.shields.io/codacy/coverage/b6a59cdf5ca64eab9104928d4f9bbb97?logo=codacy)](https://app.codacy.com/gh/healthjoy/async-firebase/dashboard)
 
-**async-firebase** is a library designed for sending push notification to Android and iOS devices via Firebase Cloud Messaging
-platform.
 
   * Free software: MIT license
   * Requires: Python 3.6+
 
 ## Features
 
-  * Does not rely on a hefty package ``firebase-admin``
-  * Ability to send push notification to Android and iOS devices
+  * Extremely lightweight and does not rely on ``firebase-admin`` which is hefty
+  * Send push notifications to Android and iOS devices
   * Ability to set TTL (time to live) for notifications
   * Ability to set priority for notifications
   * Ability to set collapse-key for notifications
