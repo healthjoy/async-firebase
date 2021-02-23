@@ -158,7 +158,6 @@ async def test_push(fake_async_fcm_client_w_creds, faker_, httpx_mock: HTTPXMock
             priority="normal",
             apns_topic="test-push",
             collapse_key="push",
-            alert_text="test-alert",
             category="test-category",
             badge=0,
         )
@@ -181,7 +180,6 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, faker_, httpx_mock: H
             priority="normal",
             apns_topic="test-push",
             collapse_key="push",
-            alert_text="test-alert",
             category="test-category",
             badge=0,
             dry_run=True
@@ -212,7 +210,6 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
             priority="normal",
             apns_topic="test-push",
             collapse_key="push",
-            alert_text="test-alert",
             category="test-category",
             badge=0,
         )

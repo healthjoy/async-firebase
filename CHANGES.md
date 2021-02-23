@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+  * Method ``push()`` no longer has parameter ``alert_text``. The parameter ``notification_body`` should be used
+   instead.
+
 ## 0.3.0
 
   * Fix version

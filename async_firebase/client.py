@@ -268,7 +268,6 @@ class AsyncFirebaseClient:
         notification_body: str = None,
         notification_data: t.Dict[str, t.Any] = None,
         silent: bool = False,
-        alert_text: str = None,
         category: str = None,
         collapse_key: str = None,
         ttl: int = 604800,
@@ -279,11 +278,10 @@ class AsyncFirebaseClient:
 
         :param device_token: device token allows to send targeted notifications to a particular instance of app.
         :param notification_title: the notification's title.
-        :param notification_body: the notification's body text.
+        :param notification_body: the notification's body text also known as alert text.
         :param notification_data: arbitrary key/value payload. The key should not be a reserved word ("from",
             "message_type", or any word starting with "google" or "gcm")
         :param silent: ``True`` to indicate that the notification should be silent (optional). Default to ``False``.
-        :param alert_text: an alert that can be included into payload.
         :param category: string identifier representing the message type (optional).
         :param collapse_key: collapse key string for the message (optional). This is an identifier for a group of
             messages that can be collapsed, so that only the last message is sent when delivery can be resumed.
@@ -348,7 +346,6 @@ class AsyncFirebaseClient:
             priority=priority,
             ttl=ttl,
             collapse_key=collapse_key,
-            alert=alert_text,
             category=category,
             **kwargs,
         )
