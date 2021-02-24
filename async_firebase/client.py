@@ -6,7 +6,8 @@ to authorize request which is being made to Firebase.
 import logging
 import typing as t
 import uuid
-from datetime import datetime
+from dataclasses import asdict
+from datetime import datetime, timedelta
 from pathlib import PurePath
 from urllib.parse import urljoin
 
@@ -14,7 +15,21 @@ import httpx
 from google.auth.transport.requests import Request as GoogleRequest  # type: ignore
 from google.oauth2 import service_account  # type: ignore
 
+from .messages import (
+    AndroidConfig,
+    AndroidNotification,
+    APNSConfig,
+    APNSPayload,
+    Aps,
+    ApsAlert,
+    Message,
+    Notification,
+    PushNotification,
+)
 from .utils import make_async, remove_null_values
+
+
+DEFAULT_TTL = 604800
 
 
 class AsyncFirebaseClient:
@@ -90,29 +105,10 @@ class AsyncFirebaseClient:
         return self._credentials.token  # type: ignore
 
     @staticmethod
-    def build_common_message() -> t.Dict[str, t.Dict[str, t.Any]]:
-        """Construct common notification message."""
-        return {
-            "message": {
-                "android": {},
-                "apns": {},
-                "condition": None,
-                "data": {
-                    "push_id": str(uuid.uuid4()),
-                    "time": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
-                },
-                "notification": {},
-                "token": None,
-                "topic": None,
-                "webpush": None,
-            }
-        }
-
-    @staticmethod
-    def build_android_message(  # pylint: disable=too-many-locals
+    def build_android_config(  # pylint: disable=too-many-locals
         *,
         priority: str,
-        ttl: int,
+        ttl: t.Union[int, timedelta] = DEFAULT_TTL,
         collapse_key: t.Optional[str] = None,
         restricted_package_name: str = None,
         data: t.Dict[str, t.Any] = None,
@@ -127,12 +123,12 @@ class AsyncFirebaseClient:
         body_loc_args: t.List[str] = None,
         title_loc_key: str = None,
         title_loc_args: t.List[str] = None,
-        **extra_kwargs,
-    ) -> t.Tuple[t.Dict[str, t.Any], t.Dict[str, t.Any]]:
-        """Constructs dictionary that will be used to customize the messages that are sent to Android device.
+    ) -> AndroidConfig:
+        """
+        Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
 
         :param priority: sets the priority of the message. Valid values are "normal" and "high."
-        :param ttl: this parameter specifies how long (in seconds) the message should be kept in FCM storage if the
+        :param ttl: this parameter specifies how long (in seconds) the message should be kept in Firebase storage if the
             device is offline. The maximum time to live supported is 4 weeks, and the default value is 4 weeks.
         :param collapse_key: this parameter identifies a group of messages that can be collapsed, so that only the last
             message gets sent when delivery can be resumed.
@@ -157,42 +153,42 @@ class AsyncFirebaseClient:
             title text (optional).
         :param title_loc_args: A list of resource keys that will be used in place of the format specifiers
             in ``title_loc_key`` (optional).
-        :return: dictionary to included in an APNS payload, and extra-kwargs that considered unknown for Android.
+        :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         if data:
             data = {str(key): str(value) for key, value in data.items()}
 
-        notification = {
-            "title": title,
-            "icon": icon,
-            "body": body,
-            "color": color,
-            "sound": sound,
-            "tag": tag,
-            "click_action": click_action,
-            "body_loc_key": body_loc_key,
-            "body_loc_args": body_loc_args,
-            "title_loc_key": title_loc_key,
-            "title_loc_args": title_loc_args,
-        }
+        android_config = AndroidConfig(
+            collapse_key=collapse_key,
+            priority=priority,
+            ttl=f"{int(ttl.total_seconds()) if isinstance(ttl, timedelta) else ttl}s",
+            restricted_package_name=restricted_package_name,
+            data=data or {},
+            notification=AndroidNotification(
+                title=title,
+                body=body,
+                icon=icon,
+                color=color,
+                sound=sound,
+                tag=tag,
+                click_action=click_action,
+                body_loc_key=body_loc_key,
+                body_loc_args=body_loc_args or [],
+                title_loc_key=title_loc_key,
+                title_loc_args=title_loc_args or [],
+            ),
+        )
 
-        android_config = {
-            "priority": priority,
-            "collapse_key": collapse_key,
-            "restricted_package_name": restricted_package_name,
-            "data": data,
-            "ttl": f"{ttl}s",
-            "notification": remove_null_values(notification),
-        }
-        return android_config, extra_kwargs
+        return android_config
 
     @staticmethod
-    def build_apns_message(  # pylint: disable=too-many-locals
+    def build_apns_config(  # pylint: disable=too-many-locals
         *,
         priority: str,
-        ttl: int,
+        ttl: int = DEFAULT_TTL,
         apns_topic: str = None,
         collapse_key: str = None,
+        title: str = None,
         alert: str = None,
         badge: int = None,
         sound: str = None,
@@ -201,28 +197,46 @@ class AsyncFirebaseClient:
         thread_id: str = None,
         mutable_content: bool = True,
         custom_data: t.Dict[str, t.Any] = None,
-        **extra_kwargs,
-    ) -> t.Tuple[t.Dict[str, t.Any], t.Dict[str, t.Any]]:
-        """Constructs dictionary that will be used to customize the messages that are sent to iOS device.
+        loc_key: str = None,
+        loc_args: t.List[str] = None,
+        title_loc_key: str = None,
+        title_loc_args: t.List[str] = None,
+        action_loc_key: str = None,
+        launch_image: str = None,
+    ) -> APNSConfig:
+        """
+        Constructs APNSConfig that will be used to customize the messages that are sent to iOS device.
 
         :param priority: sets the priority of the message. On iOS, these correspond to APNs priorities 5 and 10.
-        :param ttl: this parameter specifies how long (in seconds) the message should be kept in FCM storage if the
+        :param ttl: this parameter specifies how long (in seconds) the message should be kept in Firebase storage if the
             device is offline. The maximum time to live supported is 4 weeks, and the default value is 4 weeks.
-        :param apns_topic: The topic for the notification. In general, the topic is your app’s bundle ID/app ID.
+        :param apns_topic: the topic for the notification. In general, the topic is your app’s bundle ID/app ID.
             It can have a suffix based on the type of push notification.
         :param collapse_key: this parameter identifies a group of messages that can be collapsed, so that only the last
             message gets sent when delivery can be resumed.
-        :param alert: A string or a ``messaging.ApsAlert`` instance (optional).
-        :param badge: The value of the badge on the home screen app icon. If not specified, the badge is not changed.
+        :param title: title of the alert (optional). If specified, overrides the title set via ``messages.Notification``
+        :param alert: a string or a ``messages.ApsAlert`` instance (optional).
+        :param badge: the value of the badge on the home screen app icon. If not specified, the badge is not changed.
             If set to 0, the badge is removed.
-        :param sound: Name of the sound file to be played with the message (optional).
+        :param sound: name of the sound file to be played with the message (optional).
         :param content_available: A boolean indicating whether to configure a background update notification (optional).
-        :param category: String identifier representing the message type (optional).
-        :param thread_id: An app-specific string identifier for grouping messages (optional).
+        :param category: string identifier representing the message type (optional).
+        :param thread_id: an app-specific string identifier for grouping messages (optional).
         :param mutable_content: A boolean indicating whether to support mutating notifications at the client using app
             extensions (optional).
         :param custom_data: A dict of custom key-value pairs to be included in the Aps dictionary (optional).
-        :return: dictionary to included in an APNS payload, and extra-kwargs that considered unknown for APNS.
+        :param loc_key: key of the body string in the app's string resources to use to localize the body text
+            (optional).
+        :param loc_args: a list of resource keys that will be used in place of the format specifiers in ``loc_key``
+            (optional).
+        :param title_loc_key: key of the title string in the app's string resources to use to localize the title text
+            (optional).
+        :param title_loc_args: a list of resource keys that will be used in place of the format specifiers in
+            ``title_loc_key`` (optional).
+        :param action_loc_key: key of the text in the app's string resources to use to localize the action button text
+            (optional).
+        :param launch_image: image for the notification action (optional).
+        :return: an instance of ``messages.APNSConfig`` to included in the resulting payload.
         """
 
         apns_headers = {
@@ -234,22 +248,31 @@ class AsyncFirebaseClient:
         if collapse_key:
             apns_headers["apns-collapse-id"] = str(collapse_key)
 
-        apns_config = {
-            "headers": apns_headers,
-            "payload": {
-                "aps": {
-                    "alert": alert,
-                    "badge": badge,
-                    "sound": "default" if alert and sound is None else sound,
-                    "content_available": content_available,
-                    "category": category,
-                    "thread_id": thread_id,
-                    "mutable_content": mutable_content,
-                    "custom_data": custom_data,
-                }
-            },
-        }
-        return apns_config, extra_kwargs
+        apns_config = APNSConfig(
+            headers=apns_headers,
+            payload=APNSPayload(
+                aps=Aps(
+                    alert=ApsAlert(
+                        title=title,
+                        body=alert,
+                        loc_key=loc_key,
+                        loc_args=loc_args or [],
+                        title_loc_key=title_loc_key,
+                        title_loc_args=title_loc_args or [],
+                        action_loc_key=action_loc_key,
+                        launch_image=launch_image,
+                    ),
+                    badge=badge,
+                    sound="default" if alert and sound is None else sound,
+                    content_available=content_available,
+                    category=category,
+                    thread_id=thread_id,
+                    mutable_content=mutable_content,
+                    custom_data=custom_data or {},
+                ),
+            ),
+        )
+        return apns_config
 
     async def _prepare_headers(self):
         """Prepare HTTP headers that will be used to request Firebase Cloud Messaging."""
@@ -258,38 +281,40 @@ class AsyncFirebaseClient:
         return {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; UTF-8",
+            "X-Request-Id": str(uuid.uuid4()),
         }
 
     async def push(  # pylint: disable=too-many-locals
         self,
         device_token: str,
         *,
-        notification_title: str = None,
-        notification_body: str = None,
-        notification_data: t.Dict[str, t.Any] = None,
-        silent: bool = False,
-        category: str = None,
-        collapse_key: str = None,
-        ttl: int = 604800,
+        android: t.Optional[AndroidConfig] = None,
+        apns: t.Optional[APNSConfig] = None,
+        condition: t.Optional[str] = None,
+        data: t.Optional[t.Dict[str, str]] = None,
+        notification: t.Optional[Notification] = None,
+        topic: t.Optional[str] = None,
+        webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
-        **kwargs,
     ) -> t.Dict[str, t.Any]:
         """Send push notification.
 
         :param device_token: device token allows to send targeted notifications to a particular instance of app.
-        :param notification_title: the notification's title.
-        :param notification_body: the notification's body text also known as alert text.
-        :param notification_data: arbitrary key/value payload. The key should not be a reserved word ("from",
-            "message_type", or any word starting with "google" or "gcm")
-        :param silent: ``True`` to indicate that the notification should be silent (optional). Default to ``False``.
-        :param category: string identifier representing the message type (optional).
-        :param collapse_key: collapse key string for the message (optional). This is an identifier for a group of
-            messages that can be collapsed, so that only the last message is sent when delivery can be resumed.
-            A maximum of 4 different collapse keys may be active at a given time.
-        :param ttl: the time-to-live duration of the message (optional). This can be specified as a numeric seconds
-            value or a ``datetime.timedelta`` instance. Default 7 days.
+        :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
+        :param apns: as instance of ``messages.APNSConfig`` that contains iOS-specific options.
+        :param condition: the Firebase condition to which the message should be sent.
+        :param data: a dictionary of data fields. All keys and values in the dictionary must be strings.
+        :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
+            in a resulting message.
+        :param topic: name of the Firebase topic to which the message should be sent.
+        :param webpush: an instance of ``messages.WebpushConfig``. NOT IMPLEMENTED YET.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
+
+        :raises:
+
+            ValueError is ``messages.PushNotification`` payload cannot be assembled
+
         :return: response from Firebase. Example of response:
 
             success::
@@ -323,45 +348,32 @@ class AsyncFirebaseClient:
                     }
                 }
         """
-        priority = kwargs.pop("priority", "normal")
-        if silent:
-            kwargs.pop("alert", None)
-
-        fcm_message: t.Dict[str, t.Any] = self.build_common_message()
-        fcm_message["message"]["token"] = device_token
-        fcm_message["message"]["notification"] = {
-            "title": notification_title,
-            "body": notification_body,
-        }
-        if notification_data:
-            fcm_message["message"]["data"].update(notification_data)
-
-        fcm_message["message"]["android"], unknown_kwargs = self.build_android_message(
-            priority=priority,
-            ttl=ttl,
-            collapse_key=collapse_key,
-            **kwargs,
+        message = Message(
+            token=device_token,
+            data=data or {},
+            notification=notification,
+            android=android,
+            webpush=webpush or {},
+            apns=apns,
+            topic=topic,
+            condition=condition,
         )
-        fcm_message["message"]["apns"], unknown_kwargs = self.build_apns_message(
-            priority=priority,
-            ttl=ttl,
-            collapse_key=collapse_key,
-            category=category,
-            **kwargs,
-        )
-        if unknown_kwargs:
-            fcm_message["message"]["data"].update(unknown_kwargs)
 
-        fcm_message["message"] = remove_null_values(fcm_message["message"])
+        push_notification: t.Dict[str, t.Any] = asdict(PushNotification(message=message, validate_only=dry_run))
+        push_notification["message"] = remove_null_values(push_notification["message"])
 
-        if dry_run:
-            fcm_message["validate_only"] = True
+        if len(push_notification["message"]) == 1:
+            logging.warning("No data has been provided to construct push notification payload")
+            raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
 
         async with httpx.AsyncClient() as client:
             url = urljoin(
                 self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
             )
             logging.debug("Requesting POST %s", url)
-            response: httpx.Response = await client.post(url, json=fcm_message, headers=await self._prepare_headers())
+            response: httpx.Response = await client.post(
+                url, json=push_notification, headers=await self._prepare_headers()
+            )
+            logging.debug("Time spent to make a request: %s", response.elapsed)
 
         return response.json()
