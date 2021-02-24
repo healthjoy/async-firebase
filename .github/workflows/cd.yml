@@ -39,6 +39,7 @@ jobs:
         run: pip list
 
   release:
+    needs: create-virtualenv
     runs-on: ubuntu-latest
     steps:
       - name: source code

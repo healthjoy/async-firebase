@@ -1,7 +1,9 @@
 import asyncio
 import inspect
 import time
+import sys
 import threading
+from concurrent.futures.thread import ThreadPoolExecutor
 
 import pytest
 
@@ -90,3 +92,43 @@ async def test_make_async_get_result():
     except asyncio.CancelledError:
         pass
     assert sleeping_task.cancelled()
+
+
+async def test_make_async_pre_created_loop():
+
+    @make_async
+    def func1(loop=None):
+        return
+
+    pre_created_loop = asyncio.get_event_loop()
+    pre_created_loop.create_task(func1(loop=pre_created_loop))
+
+    is_python36 = sys.version_info < (3, 7)
+    if is_python36:
+        all_tasks = asyncio.tasks.Task.all_tasks()
+        current_task = asyncio.tasks.Task.current_task()
+    else:
+        all_tasks = asyncio.all_tasks()
+        current_task = asyncio.current_task()
+
+    for task in all_tasks:
+        if task == current_task:
+            continue
+        if is_python36:
+            assert id(task._loop) == id(pre_created_loop)
+        else:
+            assert id(task.get_loop()) == id(pre_created_loop)
+
+
+async def test_make_async_pre_created_thread_pool_executor():
+
+    @make_async
+    def func1(executor=None):
+        return threading.get_ident()
+
+    thread_pool_executor = ThreadPoolExecutor(1)
+    thread_id = await func1(executor=thread_pool_executor)
+
+    thread = thread_pool_executor._threads.copy().pop()
+    assert thread.ident == thread_id
+    thread_pool_executor.shutdown(wait=True)
