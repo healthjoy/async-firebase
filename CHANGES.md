@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+  * Update 3rd-party dependencies:
+    - `google-auth = "~1.27.1"`
+    - `httpx = "<1.0.0"`
+
 ## 1.0.0
 
   * Remastering main client.
