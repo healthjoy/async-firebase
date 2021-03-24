@@ -31,7 +31,8 @@ def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
 
 
 def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> dict:
-    """The instrumentation to cleanup firebase message from null values.
+    """
+    The instrumentation to cleanup firebase message from null values.
 
     Example::
 
