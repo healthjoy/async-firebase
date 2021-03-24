@@ -6,7 +6,6 @@ to authorize request which is being made to Firebase.
 import logging
 import typing as t
 import uuid
-from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import PurePath
 from urllib.parse import urljoin
@@ -26,7 +25,7 @@ from .messages import (
     Notification,
     PushNotification,
 )
-from .utils import make_async, remove_null_values
+from .utils import cleanup_firebase_message, make_async
 
 
 DEFAULT_TTL = 604800
@@ -359,8 +358,9 @@ class AsyncFirebaseClient:
             condition=condition,
         )
 
-        push_notification: t.Dict[str, t.Any] = asdict(PushNotification(message=message, validate_only=dry_run))
-        push_notification["message"] = remove_null_values(push_notification["message"])
+        push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
+            PushNotification(message=message, validate_only=dry_run)
+        )
 
         if len(push_notification["message"]) == 1:
             logging.warning("No data has been provided to construct push notification payload")

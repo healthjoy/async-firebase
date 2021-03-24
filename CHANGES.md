@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+  * Added instrumentation to cleanup Firebase message before it can gets send. This is requirements that Firebase put on
+  us, otherwise it fails with 400 error code, which basically says that payload is not well formed.
+
 ## 1.1.0
 
   * Update 3rd-party dependencies:
