@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "async-firebase"
-version = "1.1.0"
+version = "1.2.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -36,7 +36,7 @@ requests = "~2.25.1"
 [tool.poetry.dev-dependencies]
 pre-commit = { version = "~2.11", python = ">=3.6" }
 cryptography = "~3.4.4"
-faker = "~6.6.0"
+faker = "~6.6"
 
 # tests
 asynctest = "~0.13.0"

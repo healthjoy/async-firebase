@@ -7,7 +7,18 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 import pytest
 
-from async_firebase.utils import make_async, remove_null_values
+from async_firebase.messages import (
+    AndroidConfig,
+    AndroidNotification,
+    APNSConfig,
+    APNSPayload,
+    Aps,
+    ApsAlert,
+    Message,
+    Notification,
+    PushNotification,
+)
+from async_firebase.utils import cleanup_firebase_message, make_async, remove_null_values
 
 
 pytestmark = pytest.mark.asyncio
@@ -66,9 +77,9 @@ async def test_make_async_get_result():
         for i in range(seconds_to_block):
             if event.is_set():
                 return
-            print('blocking {}/{}'.format(i, seconds_to_block))
+            print("blocking {}/{}".format(i, seconds_to_block))
             time.sleep(1)
-        print('done blocking {}'.format(seconds_to_block))
+        print("done blocking {}".format(seconds_to_block))
 
     async def count_sum(x, y):
         return x + y
@@ -132,3 +143,85 @@ async def test_make_async_pre_created_thread_pool_executor():
     thread = thread_pool_executor._threads.copy().pop()
     assert thread.ident == thread_id
     thread_pool_executor.shutdown(wait=True)
+
+
+@pytest.mark.parametrize(
+    "firebase_message, exp_result", (
+        (
+            AndroidNotification(title="push-title", body="push-body"),
+            {"title": "push-title", "body": "push-body"}
+        ),
+        (
+            AndroidConfig(collapse_key="group", priority="normal", ttl="3600s"),
+            {"collapse_key": "group", "priority": "normal", "ttl": "3600s"}
+        ),
+        (
+            ApsAlert(title="push-title", body="push-body"), {"title": "push-title", "body": "push-body"}
+        ),
+        (
+            Aps(alert="alert", badge=9), {"alert": "alert", "badge": 9}
+        ),
+        (
+            APNSPayload(custom_data={"foo": "bar"}), {"custom_data": {"foo": "bar"}}
+        ),
+        (
+            APNSConfig(headers={"x-header": "x-data"}), {"headers": {"x-header": "x-data"}}
+        ),
+        (
+            Notification(title="push-title", body="push-body"), {"title": "push-title", "body": "push-body"}
+        ),
+        (
+            Message(
+                token="qwerty",
+                notification=Notification(title="push-title", body="push-body"),
+                apns=APNSConfig(
+                    headers={"hdr": "qwe"},
+                    payload=APNSPayload(
+                        aps=Aps(
+                            sound="generic",
+                        ),
+                    )
+                )
+            ),
+            {
+                "token": "qwerty",
+                "notification": {"title": "push-title", "body": "push-body"},
+                "apns": {
+                    "headers": {"hdr": "qwe"},
+                    "payload": {
+                        "aps": {"sound": "generic"}
+                    }
+                }
+            }
+        ),
+        (
+            PushNotification(
+                message=Message(
+                    token="secret-token",
+                    notification=Notification(title="push-title", body="push-body"),
+                    android=AndroidConfig(
+                        collapse_key="group",
+                        notification=AndroidNotification(
+                            title="android-push-title",
+                            body="android-push-body"
+                        )
+                    )
+                )
+            ),
+            {
+                "message": {
+                    "token": "secret-token",
+                    "notification": {"title": "push-title", "body": "push-body"},
+                    "android": {
+                        "collapse_key": "group",
+                        "notification": {"title": "android-push-title", "body": "android-push-body"}
+                    }
+                },
+                "validate_only": False
+            },
+        ),
+    )
+)
+def test_cleanup_firebase_message(firebase_message, exp_result):
+    result = cleanup_firebase_message(firebase_message)
+    assert result == exp_result
