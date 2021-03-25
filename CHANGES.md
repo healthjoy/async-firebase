@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+  * [FIX] APNS custom data properly incorporate into the push notification payload. So instead of passing ``custom_data``
+  as-is into payload and by that introducing one more nested level, extract all the key from ``custom_data`` and
+  put them on the same level as ``aps`` attribute.
+
 ## 1.2.1
 
   * Added verbosity when making request to Firebase

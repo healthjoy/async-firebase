@@ -1,4 +1,5 @@
-"""The module houses client to communicate with FCM - Firebase Cloud Messaging (Android, iOS and Web).
+"""
+The module houses client to communicate with FCM - Firebase Cloud Messaging (Android, iOS and Web).
 
 Documentation for google-auth package https://google-auth.readthedocs.io/en/latest/user-guide.html that is used
 to authorize request which is being made to Firebase.
@@ -6,6 +7,7 @@ to authorize request which is being made to Firebase.
 import logging
 import typing as t
 import uuid
+from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import PurePath
 from urllib.parse import urljoin
@@ -359,22 +361,38 @@ class AsyncFirebaseClient:
             condition=condition,
         )
 
+        # Assemble APNS custom data properly
+        apns_custom_data: t.Dict[str, t.Any] = {}
+        has_apns_config = True if apns and apns.payload else False
+        if has_apns_config:
+            apns_custom_data = deepcopy(apns.payload.custom_data)  # type: ignore
+            apns.payload.custom_data.clear()  # type: ignore
+
         push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
             PushNotification(message=message, validate_only=dry_run)
         )
+        if has_apns_config:
+            push_notification["message"]["apns"]["payload"].update(apns_custom_data)
 
         if len(push_notification["message"]) == 1:
             logging.warning("No data has been provided to construct push notification payload")
             raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
 
+        response = await self._send_request(push_notification)
+        return response.json()
+
+    async def _send_request(self, payload: t.Dict[str, t.Any]) -> httpx.Response:
+        """Sends an HTTP call using the ``httpx`` library.
+
+        :param payload: request payload
+        :return: HTTP response
+        """
         async with httpx.AsyncClient() as client:
             url = urljoin(
                 self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
             )
-            logging.debug("Requesting POST %s, payload: %s", url, push_notification)
-            response: httpx.Response = await client.post(
-                url, json=push_notification, headers=await self._prepare_headers()
-            )
+            logging.debug("Requesting POST %s, payload: %s", url, payload)
+            response: httpx.Response = await client.post(url, json=payload, headers=await self._prepare_headers())
             logging.debug("Response Code: %s, Time spent to make a request: %s", response.status_code, response.elapsed)
 
-        return response.json()
+        return response
