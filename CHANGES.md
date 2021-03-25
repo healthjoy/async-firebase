@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+  * Added verbosity when making request to Firebase
+
 ## 1.2.0
 
   * Added instrumentation to cleanup Firebase message before it can gets send. This is requirements that Firebase put on
