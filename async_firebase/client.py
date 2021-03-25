@@ -84,6 +84,7 @@ class AsyncFirebaseClient:
         if isinstance(service_account_filename, PurePath):
             service_account_filename = str(service_account_filename)
 
+        logging.debug("Creating credentials from file: %s", service_account_filename)
         self._credentials = service_account.Credentials.from_service_account_file(
             filename=service_account_filename, scopes=self.scopes
         )
@@ -370,10 +371,10 @@ class AsyncFirebaseClient:
             url = urljoin(
                 self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
             )
-            logging.debug("Requesting POST %s", url)
+            logging.debug("Requesting POST %s, payload: %s", url, push_notification)
             response: httpx.Response = await client.post(
                 url, json=push_notification, headers=await self._prepare_headers()
             )
-            logging.debug("Time spent to make a request: %s", response.elapsed)
+            logging.debug("Response Code: %s, Time spent to make a request: %s", response.status_code, response.elapsed)
 
         return response.json()
