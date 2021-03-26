@@ -162,7 +162,8 @@ async def test_make_async_pre_created_thread_pool_executor():
             Aps(alert="alert", badge=9), {"alert": "alert", "badge": 9}
         ),
         (
-            APNSPayload(custom_data={"foo": "bar"}), {"custom_data": {"foo": "bar"}}
+            APNSPayload(aps=Aps(alert="push-text", custom_data={"foo": "bar"})),
+            {"aps": {"alert": "push-text", "custom_data": {"foo": "bar"}}}
         ),
         (
             APNSConfig(headers={"x-header": "x-data"}), {"headers": {"x-header": "x-data"}}

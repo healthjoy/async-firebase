@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+  * [FIX] ``APNSPayload`` message no longer support attribute ``custom_data``
+
 ## 1.3.0
 
   * [FIX] APNS custom data properly incorporate into the push notification payload. So instead of passing ``custom_data``
