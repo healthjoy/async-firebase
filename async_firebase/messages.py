@@ -109,7 +109,15 @@ class Aps:
     thread_id: an app-specific string identifier for grouping messages (optional).
     mutable_content: a boolean indicating whether to support mutating notifications at the client using app extensions
         (optional).
-    custom_data: a dictionary of custom key-value pairs to be included in the Aps dictionary (optional).
+    custom_data: a dictionary of custom key-value pairs to be included in the Aps dictionary (optional). These
+        attributes will be then re-assembled according to the format allowed by APNS. Below you may find details:
+
+        In addition to the Apple-defined keys, custom keys may be added to payload to deliver small amounts of data
+        to app, notification service app extension, or notification content app extension. Custom keys must
+        have values with primitive types, such as dictionary, array, string, number, or Boolean. Custom keys are
+        available in the ``userInfo`` dictionary of the ``UNNotificationContent`` object delivered to app.
+
+        In a nutshell custom keys should be incorporated on the same level as ``apns`` attribute.
     """
 
     alert: t.Union[str, ApsAlert, None] = None
@@ -129,19 +137,9 @@ class APNSPayload:
 
     Attributes:
     aps: a ``messages.Aps`` instance to be included in the payload.
-    custom_data: arbitrary keyword arguments to be included as custom fields in the payload (optional). This attribute
-        will be then re-assembled according to the format allowed by APNS. Below you may find details:
-
-        In addition to the Apple-defined keys, custom keys may be added to payload to deliver small amounts of data
-        to app, notification service app extension, or notification content app extension. Custom keys must
-        have values with primitive types, such as dictionary, array, string, number, or Boolean. Custom keys are
-        available in the ``userInfo`` dictionary of the ``UNNotificationContent`` object delivered to app.
-
-        In a nutshell custom keys should be incorporated on the same level as ``apns`` attribute.
     """
 
     aps: t.Optional[Aps] = field(default=None)
-    custom_data: t.Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

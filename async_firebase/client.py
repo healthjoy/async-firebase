@@ -365,8 +365,8 @@ class AsyncFirebaseClient:
         apns_custom_data: t.Dict[str, t.Any] = {}
         has_apns_config = True if apns and apns.payload else False
         if has_apns_config:
-            apns_custom_data = deepcopy(apns.payload.custom_data)  # type: ignore
-            apns.payload.custom_data.clear()  # type: ignore
+            apns_custom_data = deepcopy(apns.payload.aps.custom_data)  # type: ignore
+            apns.payload.aps.custom_data.clear()  # type: ignore
 
         push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
             PushNotification(message=message, validate_only=dry_run)
