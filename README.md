@@ -126,7 +126,7 @@ async def main():
                 "mutable_content": False,
                 "custom_data": {
                     "link": "https://link-to-somewhere.com",
-                    "ticket_id": "YXZ-655512
+                    "ticket_id": "YXZ-655512",
                 },
             })
         })

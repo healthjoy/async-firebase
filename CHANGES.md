@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+  * [FIX] Encode ``Aps`` message according to APNS [specification](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification)
+  * [FIX] Util ``cleanup_firebase_message`` to remove null values for dict object.
+  * [CHORE] Update dependencies
+
 ## 1.3.1
 
   * [FIX] ``APNSPayload`` message no longer support attribute ``custom_data``

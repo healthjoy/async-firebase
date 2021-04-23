@@ -221,6 +221,68 @@ async def test_make_async_pre_created_thread_pool_executor():
                 "validate_only": False
             },
         ),
+        (
+            PushNotification(
+                message=Message(
+                    token="secret-token",
+                    android=AndroidConfig(
+                        collapse_key="group",
+                        notification=AndroidNotification(
+                            title="android-push-title",
+                            body="android-push-body"
+                        )
+                    ),
+                    apns=APNSConfig(
+                        headers={
+                            "apns-expiration": "1621594859",
+                            "apns-priority": "5",
+                            "apns-collapse-id": "ENTITY_UPDATED",
+                        },
+                        payload={
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            },
+                            "custom_attr_1": "value_1",
+                            "custom_attr_2": 42,
+                        }
+                    )
+                )
+            ),
+            {
+                "message": {
+                    "token": "secret-token",
+                    "android": {
+                        "collapse_key": "group",
+                        "notification": {"title": "android-push-title", "body": "android-push-body"}
+                    },
+                    "apns": {
+                        "headers": {
+                            "apns-expiration": "1621594859",
+                            "apns-priority": "5",
+                            "apns-collapse-id": "ENTITY_UPDATED",
+                        },
+                        "payload": {
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            },
+                            "custom_attr_1": "value_1",
+                            "custom_attr_2": 42,
+                        }
+                    }
+                },
+                "validate_only": False
+            },
+        ),
     )
 )
 def test_cleanup_firebase_message(firebase_message, exp_result):
