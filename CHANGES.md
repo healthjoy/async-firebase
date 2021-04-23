@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.3
+
+  * [FIX] Use numeric representation for boolean attributes ``mutable-content`` and ``content-available``.
+
 ## 1.3.2
 
   * [FIX] Encode ``Aps`` message according to APNS [specification](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification)
