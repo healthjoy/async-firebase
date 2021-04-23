@@ -36,10 +36,10 @@ def aps_encoder(aps: Aps) -> t.Optional[t.Dict[str, t.Any]]:
             else aps.alert,
             "badge": aps.badge,
             "sound": aps.sound,
-            "content-available": aps.content_available,
+            "content-available": 1 if aps.content_available else 0,
             "category": aps.category,
             "thread-id": aps.thread_id,
-            "mutable-content": aps.mutable_content,
+            "mutable-content": 1 if aps.mutable_content else 0,
         },
         **custom_data,
     }
