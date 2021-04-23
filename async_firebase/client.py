@@ -7,7 +7,6 @@ to authorize request which is being made to Firebase.
 import logging
 import typing as t
 import uuid
-from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import PurePath
 from urllib.parse import urljoin
@@ -16,6 +15,7 @@ import httpx
 from google.auth.transport.requests import Request as GoogleRequest  # type: ignore
 from google.oauth2 import service_account  # type: ignore
 
+from .encoders import aps_encoder
 from .messages import (
     AndroidConfig,
     AndroidNotification,
@@ -362,17 +362,13 @@ class AsyncFirebaseClient:
         )
 
         # Assemble APNS custom data properly
-        apns_custom_data: t.Dict[str, t.Any] = {}
         has_apns_config = True if apns and apns.payload else False
         if has_apns_config:
-            apns_custom_data = deepcopy(apns.payload.aps.custom_data)  # type: ignore
-            apns.payload.aps.custom_data.clear()  # type: ignore
+            message.apns.payload = aps_encoder(apns.payload.aps)  # type: ignore
 
         push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
             PushNotification(message=message, validate_only=dry_run)
         )
-        if has_apns_config:
-            push_notification["message"]["apns"]["payload"].update(apns_custom_data)
 
         if len(push_notification["message"]) == 1:
             logging.warning("No data has been provided to construct push notification payload")

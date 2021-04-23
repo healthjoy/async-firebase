@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timedelta
 
@@ -30,6 +31,11 @@ def fake_async_fcm_client_w_creds(fake_async_fcm_client, fake_service_account):
     client = AsyncFirebaseClient()
     client.creds_from_service_account_info(fake_service_account)
     return client
+
+
+@pytest.fixture()
+def fake_device_token(faker_):
+    return faker_.bothify(text=f"{'?' * 12}:{'?' * 256}")
 
 
 def fake_jwt_grant():
@@ -129,7 +135,7 @@ def test_build_apns_config(fake_async_fcm_client_w_creds, freezer):
 
 
 async def test__prepare_headers(fake_async_fcm_client_w_creds):
-    frozen_uuid = uuid.UUID(hex='6eadf1d38633427cb83dbb9be137f48c')
+    frozen_uuid = uuid.UUID(hex="6eadf1d38633427cb83dbb9be137f48c")
     with patch(
         "google.oauth2.service_account.Credentials.refresh", fake_google_refresh
     ), patch.object(
@@ -143,12 +149,11 @@ async def test__prepare_headers(fake_async_fcm_client_w_creds):
         }
 
 
-async def test_push(fake_async_fcm_client_w_creds, faker_, httpx_mock: HTTPXMock):
-    device_token = faker_.bothify(text=f"{'?' * 12}:{'?' * 256}")
+async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
         status_code=200,
-        json={'name': f'projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24'}
+        json={"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"}
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
         priority="normal",
@@ -160,18 +165,17 @@ async def test_push(fake_async_fcm_client_w_creds, faker_, httpx_mock: HTTPXMock
     )
     with patch("google.oauth2.service_account.Credentials.refresh", fake_google_refresh):
         response = await fake_async_fcm_client_w_creds.push(
-            device_token=device_token,
+            device_token=fake_device_token,
             apns=apns_config
         )
-    assert response == {'name': 'projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24'}
+    assert response == {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"}
 
 
-async def test_push_dry_run(fake_async_fcm_client_w_creds, faker_, httpx_mock: HTTPXMock):
-    device_token = faker_.bothify(text=f"{'?' * 12}:{'?' * 256}")
+async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
         status_code=200,
-        json={'name': f'projects/{creds.project_id}/messages/fake_message_id'}
+        json={"name": f"projects/{creds.project_id}/messages/fake_message_id"}
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
         priority="normal",
@@ -183,24 +187,24 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, faker_, httpx_mock: H
     )
     with patch("google.oauth2.service_account.Credentials.refresh", fake_google_refresh):
         response = await fake_async_fcm_client_w_creds.push(
-            device_token=device_token,
+            device_token=fake_device_token,
             apns=apns_config,
             dry_run=True
         )
-    assert response == {'name': 'projects/fake-mobile-app/messages/fake_message_id'}
+    assert response == {"name": "projects/fake-mobile-app/messages/fake_message_id"}
 
 
 async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         status_code=401,
         json={
-            'error': {
-                'code': 401,
-                'message': 'Request had invalid authentication credentials. '
-                           'Expected OAuth 2 access token, login cookie or other '
-                           'valid authentication credential. See '
-                           'https://developers.google.com/identity/sign-in/web/devconsole-project.',
-                'status': 'UNAUTHENTICATED'
+            "error": {
+                "code": 401,
+                "message": "Request had invalid authentication credentials. "
+                           "Expected OAuth 2 access token, login cookie or other "
+                           "valid authentication credential. See "
+                           "https://developers.google.com/identity/sign-in/web/devconsole-project.",
+                "status": "UNAUTHENTICATED"
             }
         }
     )
@@ -233,3 +237,53 @@ def test_creds_from_service_account_info(fake_async_fcm_client, fake_service_acc
 def test_creds_from_service_account_file(fake_async_fcm_client, fake_service_account_file):
     fake_async_fcm_client.creds_from_service_account_file(fake_service_account_file)
     assert isinstance(fake_async_fcm_client._credentials, service_account.Credentials)
+
+
+async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json={"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"}
+    )
+    apns_config: APNSConfig = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="Your bucket has been updated",
+        collapse_key="BUCKET_UPDATED",
+        badge=1,
+        category="CATEGORY_BUCKET_UPDATED",
+        custom_data={
+            "bucket_name": "3bc56ff12a",
+            "bucket_link": "/link/to/bucket/3bc56ff12a",
+            "aliases": ["happy_friends", "mobile_groups"],
+            "updated_count": 1,
+        },
+        mutable_content=True,
+        content_available=True,
+    )
+    with patch("google.oauth2.service_account.Credentials.refresh", fake_google_refresh):
+        await fake_async_fcm_client_w_creds.push(
+            device_token=fake_device_token,
+            apns=apns_config
+        )
+        request_payload = json.loads(httpx_mock.get_requests()[0].read())
+        assert request_payload == {
+            "message": {
+                "apns": {
+                    "headers": apns_config.headers,
+                    "payload": {
+                        "aps": {
+                            "badge": 1,
+                            "category": "CATEGORY_BUCKET_UPDATED",
+                            "content-available": True,
+                            "mutable-content": True
+                        },
+                        "bucket_name": "3bc56ff12a",
+                        "bucket_link": "/link/to/bucket/3bc56ff12a",
+                        "aliases": ["happy_friends", "mobile_groups"],
+                        "updated_count": 1,
+                    }
+                },
+                "token": fake_device_token
+            },
+            "validate_only": False
+        }
