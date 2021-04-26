@@ -17,10 +17,10 @@ def aps_encoder(aps: Aps) -> t.Optional[t.Dict[str, t.Any]]:
     if not aps:
         return None
 
-    custom_data = deepcopy(aps.custom_data) or {}  # type: ignore
+    custom_data: t.Dict[str, t.Any] = deepcopy(aps.custom_data) or {}  # type: ignore
     aps.custom_data.clear()  # type: ignore
 
-    return {
+    payload = {
         "aps": {
             "alert": {
                 "title": aps.alert.title,
@@ -36,10 +36,14 @@ def aps_encoder(aps: Aps) -> t.Optional[t.Dict[str, t.Any]]:
             else aps.alert,
             "badge": aps.badge,
             "sound": aps.sound,
-            "content-available": 1 if aps.content_available else 0,
             "category": aps.category,
             "thread-id": aps.thread_id,
             "mutable-content": 1 if aps.mutable_content else 0,
         },
         **custom_data,
     }
+
+    if aps.content_available is True:
+        payload["aps"]["content-available"] = 1
+
+    return payload

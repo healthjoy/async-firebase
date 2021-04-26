@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.5
+
+  * [FIX] Adjust APS encoder in order to properly construct background push notification.
+
 ## 1.3.4
 
   * [FIX] Set properly attribute ``content-available`` for APNS payload. The attribute indicates that push

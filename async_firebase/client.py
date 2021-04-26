@@ -270,12 +270,10 @@ class AsyncFirebaseClient:
                     thread_id=thread_id,
                     mutable_content=mutable_content,
                     custom_data=custom_data or {},
+                    content_available=True if content_available else None,
                 ),
             ),
         )
-
-        if content_available:
-            apns_config.payload.aps.content_available = True
 
         return apns_config
 
