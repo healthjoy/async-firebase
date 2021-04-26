@@ -124,7 +124,7 @@ def test_build_apns_config(fake_async_fcm_client_w_creds, freezer):
                 "alert": ApsAlert(title="some-title", body="alert-message"),
                 "badge": 0,
                 "sound": "default",
-                "content_available": True,
+                "content_available": None,
                 "category": None,
                 "thread_id": None,
                 "mutable_content": True,

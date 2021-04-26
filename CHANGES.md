@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.4
+
+  * [FIX] Set properly attribute ``content-available`` for APNS payload. The attribute indicates that push
+  notification should be considered [background](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/pushing_background_updates_to_your_app).
+
 ## 1.3.3
 
   * [FIX] Use numeric representation for boolean attributes ``mutable-content`` and ``content-available``.
