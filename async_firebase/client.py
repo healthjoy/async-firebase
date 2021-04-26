@@ -194,7 +194,7 @@ class AsyncFirebaseClient:
         alert: str = None,
         badge: int = None,
         sound: str = None,
-        content_available: bool = True,
+        content_available: bool = False,
         category: str = None,
         thread_id: str = None,
         mutable_content: bool = True,
@@ -266,7 +266,6 @@ class AsyncFirebaseClient:
                     ),
                     badge=badge,
                     sound="default" if alert and sound is None else sound,
-                    content_available=content_available,
                     category=category,
                     thread_id=thread_id,
                     mutable_content=mutable_content,
@@ -274,6 +273,10 @@ class AsyncFirebaseClient:
                 ),
             ),
         )
+
+        if content_available:
+            apns_config.payload.aps.content_available = True
+
         return apns_config
 
     async def _prepare_headers(self):
