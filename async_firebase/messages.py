@@ -41,6 +41,7 @@ class AndroidNotification:
     body_loc_args: t.List[str] = field(default_factory=list)
     title_loc_key: t.Optional[str] = None
     title_loc_args: t.List[str] = field(default_factory=list)
+    channel_id: t.Optional[str] = None
 
 
 @dataclass
