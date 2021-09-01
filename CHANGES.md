@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0
+
+  * Added channel_id option to Android config ([spec](https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#AndroidNotification))
+
 ## 1.3.5
 
   * [FIX] Adjust APS encoder in order to properly construct background push notification.
