@@ -78,7 +78,8 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
         color="red",
         sound="beep",
         tag="test",
-        click_action="TOP_STORY_ACTIVITY"
+        click_action="TOP_STORY_ACTIVITY",
+        channel_id="some_channel_id",
     )
     assert android_config == AndroidConfig(**{
         "priority": "high",
@@ -97,7 +98,8 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
             "body_loc_key": None,
             "body_loc_args": [],
             "title_loc_key": None,
-            "title_loc_args": []
+            "title_loc_args": [],
+            "channel_id": "some_channel_id",
         })
     })
 

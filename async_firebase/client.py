@@ -125,6 +125,7 @@ class AsyncFirebaseClient:
         body_loc_args: t.List[str] = None,
         title_loc_key: str = None,
         title_loc_args: t.List[str] = None,
+        channel_id: t.Optional[str] = None,
     ) -> AndroidConfig:
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
@@ -155,6 +156,8 @@ class AsyncFirebaseClient:
             title text (optional).
         :param title_loc_args: A list of resource keys that will be used in place of the format specifiers
             in ``title_loc_key`` (optional).
+        :param channel_id: Notification channel id, used by android to allow user to configure notification display
+            rules on per-channel basis (optional).
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         if data:
@@ -178,6 +181,7 @@ class AsyncFirebaseClient:
                 body_loc_args=body_loc_args or [],
                 title_loc_key=title_loc_key,
                 title_loc_args=title_loc_args or [],
+                channel_id=channel_id,
             ),
         )
 
