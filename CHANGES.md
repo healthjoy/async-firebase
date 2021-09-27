@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+
+  * Update dependencies
+
 ## 1.4.0
 
   * Added channel_id option to Android config ([spec](https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#AndroidNotification))
