@@ -43,7 +43,7 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.1.4
+          POETRY_VERSION: 1.1.11
         run: |
           pip install pip==21.3 setuptools==58.2.0
           curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
