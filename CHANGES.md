@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0
+
+  * Add support of Python 3.10
+
 ## 1.5.0
 
   * Update dependencies
