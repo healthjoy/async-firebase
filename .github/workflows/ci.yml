@@ -46,7 +46,6 @@ jobs:
           POETRY_VERSION: 1.1.11
         run: |
           pip install pip==21.3 setuptools==58.2.0
-#          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
           curl -sSl https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py
           python get-poetry.py --uninstall
           python get-poetry.py
