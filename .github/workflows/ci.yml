@@ -68,7 +68,9 @@ jobs:
         uses: syphar/restore-virtualenv@v1
 
       - name: Check code style
-        run: black --check --line-length=120 --diff async_firebase
+        run: |
+          pip install typed-ast --upgrade
+          black --check --line-length=120 --diff async_firebase
 
   linters-mypy:
     needs: create-virtualenv
