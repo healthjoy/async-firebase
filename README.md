@@ -44,11 +44,11 @@ async def main():
     device_token = "..."
 
     android_config = client.build_android_config(
-        priority="high"
+        priority="high",
         ttl=2419200,
         collapse_key="push",
         data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
-        title="Store Changes"
+        title="Store Changes",
         body="Recent store changes",
     )
     response = await client.push(device_token=device_token, android=android_config)
@@ -81,7 +81,7 @@ async def main():
         ttl=2419200,
         apns_topic="store-updated",
         collapse_key="push",
-        title="Store Changes"
+        title="Store Changes",
         alert="Recent store changes",
         badge=1,
         category="test-category",
@@ -103,6 +103,8 @@ This prints:
 
 To manual construct message:
 ```python3
+import asyncio
+from datetime import datetime
 
 from async_firebase.messages import APNSConfig, APNSPayload, ApsAlert, Aps
 from async_firebase import AsyncFirebaseClient
@@ -137,6 +139,7 @@ async def main():
     client = AsyncFirebaseClient()
     client.creds_from_service_account_info({...})
     response = await client.push(device_token=device_token, apns=apns_config)
+    print(response)
 
 
 if __name__ == "__main__":
