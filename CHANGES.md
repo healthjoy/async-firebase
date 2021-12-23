@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0
+
+  * Add support of Python 3.10
+  * Fix typos in README.md
+
 ## 1.5.0
 
   * Update dependencies
