@@ -45,7 +45,7 @@ jobs:
         env:
           POETRY_VERSION: 1.1.8
         run: |
-          pip install pip==20.3.1 setuptools==50.3.2
+          pip install pip==21.1.1 setuptools==50.3.2
           curl -sSL https://install.python-poetry.org | python3 -
           poetry install --no-interaction -vv
 
