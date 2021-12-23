@@ -48,8 +48,8 @@ jobs:
           POETRY_NO_INTERACTION: 1
         run: |
           pip install pip==21.1.1 setuptools==50.3.2
-          pip install -U cachecontrol
           curl -sSL https://install.python-poetry.org | python3 -
+          poetry config experimental.new-installer false
           poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
