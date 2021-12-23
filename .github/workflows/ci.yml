@@ -45,9 +45,14 @@ jobs:
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
           POETRY_VERSION: 1.1.8
+          POETRY_HOME: /opt/poetry
+          POETRY_VIRTUALENVS_PATH: /opt/venvs
+          POETRY_NO_INTERACTION: 1
         run: |
           pip install pip==21.1.1 setuptools==50.3.2
           curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="${POETRY_HOME}/bin:/opt/bin:/opt:${PATH}"
+          export PYTHONPATH="${PYTHONPATH}:/opt"
           poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
