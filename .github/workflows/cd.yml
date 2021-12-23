@@ -29,12 +29,13 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.1.4
+          POETRY_VERSION: 1.1.12
+          POETRY_NO_INTERACTION: 1
         run: |
-          pip install pip==20.3.1 setuptools==50.3.2
-          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-          source $HOME/.poetry/env
+          pip install pip==21.1.1 setuptools==50.3.2
+          curl -sSL https://install.python-poetry.org | python3 -
           poetry install --no-interaction
+
       - name: Log currently installed packages and versions
         run: pip list
 
@@ -51,11 +52,11 @@ jobs:
       - name: Release to PyPI
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          POETRY_VERSION: 1.1.4
+          POETRY_VERSION: 1.1.12
+          POETRY_NO_INTERACTION: 1
         run: |
-          pip install pip==20.3.1 setuptools==50.3.2
-          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-          source $HOME/.poetry/env
+          pip install pip==21.1.1 setuptools==50.3.2
+          curl -sSL https://install.python-poetry.org | python3 -
           poetry build
           poetry config pypi-token.pypi $PYPI_TOKEN
           poetry publish
