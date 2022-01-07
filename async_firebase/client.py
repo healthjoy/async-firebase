@@ -9,10 +9,9 @@ import typing as t
 import uuid
 from datetime import datetime, timedelta
 from pathlib import PurePath
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 
 import httpx
-from google.auth.transport.requests import Request as GoogleRequest  # type: ignore
 from google.oauth2 import service_account  # type: ignore
 
 from .encoders import aps_encoder
@@ -41,6 +40,7 @@ class AsyncFirebaseClient:
     """
 
     BASE_URL: str = "https://fcm.googleapis.com"
+    TOKEN_URL: str = "https://oauth2.googleapis.com/token"
     FCM_ENDPOINT: str = "/v1/projects/{project_id}/messages:send"
     # A list of accessible OAuth 2.0 scopes can be found https://developers.google.com/identity/protocols/oauth2/scopes.
     SCOPES: t.List[str] = [
@@ -91,20 +91,27 @@ class AsyncFirebaseClient:
             filename=service_account_filename, scopes=self.scopes
         )
 
-    @make_async
-    def _get_access_token(self) -> t.Coroutine[t.Any, t.Any, t.Any]:
-        """Retrieve a valid access token that can be used to authorize requests.
-        :return: Access token
-        """
-        if self._credentials.valid:  # type: ignore
-            return self._credentials.token  # type: ignore
+    async def _get_access_token(self) -> str:
+        if self._credentials.valid:
+            return self._credentials.token
 
-        request = GoogleRequest()
-        self._credentials.refresh(request)  # type: ignore
-        logging.debug(
-            "Obtained access token %s that can be used to authorize requests.", self._credentials.token  # type: ignore
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = urlencode(
+            {
+                "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                "assertion": self._credentials._make_authorization_grant_assertion(),
+            }
+        ).encode("utf-8")
+
+        async with httpx.AsyncClient() as client:
+            response: httpx.Response = await client.post(self.TOKEN_URL, data=data, headers=headers)
+            data = response.json()
+
+        self._credentials.expiry = datetime.utcnow() + timedelta(
+            seconds=data["expires_in"]
         )
-        return self._credentials.token  # type: ignore
+        self._credentials.token = data["access_token"]
+        return self._credentials.token
 
     @staticmethod
     def build_android_config(  # pylint: disable=too-many-locals
