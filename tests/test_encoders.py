@@ -5,7 +5,8 @@ from async_firebase.messages import Aps, ApsAlert
 
 
 @pytest.mark.parametrize(
-    "aps_obj, exp_result", (
+    "aps_obj, exp_result",
+    (
         (
             Aps(
                 alert="push text",
@@ -13,7 +14,7 @@ from async_firebase.messages import Aps, ApsAlert
                 sound="default",
                 content_available=True,
                 category="NEW_MESSAGE",
-                mutable_content=False
+                mutable_content=False,
             ),
             {
                 "aps": {
@@ -25,7 +26,7 @@ from async_firebase.messages import Aps, ApsAlert
                     "thread-id": None,
                     "mutable-content": 0,
                 },
-            }
+            },
         ),
         (
             Aps(
@@ -37,7 +38,7 @@ from async_firebase.messages import Aps, ApsAlert
                 sound="default",
                 content_available=True,
                 category="NEW_MESSAGE",
-                mutable_content=False
+                mutable_content=False,
             ),
             {
                 "aps": {
@@ -58,7 +59,7 @@ from async_firebase.messages import Aps, ApsAlert
                     "thread-id": None,
                     "mutable-content": 0,
                 },
-            }
+            },
         ),
         (
             Aps(
@@ -75,7 +76,7 @@ from async_firebase.messages import Aps, ApsAlert
                     "list_attr": [1, 2, 3],
                     "dict_attr": {"a": "A", "b": "B"},
                     "bool_attr": False,
-                }
+                },
             ),
             {
                 "aps": {
@@ -93,10 +94,10 @@ from async_firebase.messages import Aps, ApsAlert
                 "list_attr": [1, 2, 3],
                 "dict_attr": {"a": "A", "b": "B"},
                 "bool_attr": False,
-            }
+            },
         ),
-        (None, None)
-    )
+        (None, None),
+    ),
 )
 def test_aps_encoder(aps_obj, exp_result):
     aps_dict = aps_encoder(aps_obj)
