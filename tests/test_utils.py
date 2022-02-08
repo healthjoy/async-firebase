@@ -1,8 +1,8 @@
 import asyncio
 import inspect
-import time
 import sys
 import threading
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import pytest
@@ -18,43 +18,61 @@ from async_firebase.messages import (
     Notification,
     PushNotification,
 )
-from async_firebase.utils import cleanup_firebase_message, make_async, remove_null_values
-
+from async_firebase.utils import (
+    cleanup_firebase_message,
+    make_async,
+    remove_null_values,
+)
 
 pytestmark = pytest.mark.asyncio
 
 
 @pytest.mark.parametrize(
-    "data, exp_result", (
-        ({
-            "android": {},
-            "apns": {},
-            "condition": None,
-            "data": {},
-            "notification": {},
-            "token": None,
-            "topic": None,
-            "webpush": None,
-        }, {}),
-        ({"key_1": None, "key_2": "value_2", "key_3": []}, {"key_2": "value_2"}),
-        ({
-            "falsy_string": "",
-            "falsy_int": 0,
-            "falsy_bool": False,
-            "falsy_float": 0.0,
-            "falsy_dict": {},
-            "falsy_list": [],
-        }, {"falsy_string": "", "falsy_int": 0, "falsy_bool": False, "falsy_float": 0.0}),
-        ({}, {}),
-        ({
-            "key_1": {
-                "sub_key_1": {},
-                "sub_key_2": None,
-                "sub_key_3": [],
+    "data, exp_result",
+    (
+        (
+            {
+                "android": {},
+                "apns": {},
+                "condition": None,
+                "data": {},
+                "notification": {},
+                "token": None,
+                "topic": None,
+                "webpush": None,
             },
-            "key_2": None
-         }, {"key_1": {"sub_key_1": {}, "sub_key_2": None, "sub_key_3": []}})
-    )
+            {},
+        ),
+        ({"key_1": None, "key_2": "value_2", "key_3": []}, {"key_2": "value_2"}),
+        (
+            {
+                "falsy_string": "",
+                "falsy_int": 0,
+                "falsy_bool": False,
+                "falsy_float": 0.0,
+                "falsy_dict": {},
+                "falsy_list": [],
+            },
+            {
+                "falsy_string": "",
+                "falsy_int": 0,
+                "falsy_bool": False,
+                "falsy_float": 0.0,
+            },
+        ),
+        ({}, {}),
+        (
+            {
+                "key_1": {
+                    "sub_key_1": {},
+                    "sub_key_2": None,
+                    "sub_key_3": [],
+                },
+                "key_2": None,
+            },
+            {"key_1": {"sub_key_1": {}, "sub_key_2": None, "sub_key_3": []}},
+        ),
+    ),
 )
 def test_remove_null_values(data, exp_result):
     result = remove_null_values(data)
@@ -62,7 +80,6 @@ def test_remove_null_values(data, exp_result):
 
 
 def test_make_async_ensure_coroutine_function():
-
     @make_async
     def func1():
         return True
@@ -71,7 +88,6 @@ def test_make_async_ensure_coroutine_function():
 
 
 async def test_make_async_get_result():
-
     @make_async
     def sync_func(seconds_to_block, event):
         for i in range(seconds_to_block):
@@ -90,7 +106,7 @@ async def test_make_async_get_result():
     event = threading.Event()
     done, pending = await asyncio.wait(
         [sync_func(100, event), count_sum(5, 5), count_mul(5, 5)],
-        return_when=asyncio.FIRST_COMPLETED
+        return_when=asyncio.FIRST_COMPLETED,
     )
     assert done
     assert len(pending) == 1
@@ -106,7 +122,6 @@ async def test_make_async_get_result():
 
 
 async def test_make_async_pre_created_loop():
-
     @make_async
     def func1(loop=None):
         return
@@ -132,7 +147,6 @@ async def test_make_async_pre_created_loop():
 
 
 async def test_make_async_pre_created_thread_pool_executor():
-
     @make_async
     def func1(executor=None):
         return threading.get_ident()
@@ -146,30 +160,32 @@ async def test_make_async_pre_created_thread_pool_executor():
 
 
 @pytest.mark.parametrize(
-    "firebase_message, exp_result", (
+    "firebase_message, exp_result",
+    (
         (
             AndroidNotification(title="push-title", body="push-body"),
-            {"title": "push-title", "body": "push-body"}
+            {"title": "push-title", "body": "push-body"},
         ),
         (
             AndroidConfig(collapse_key="group", priority="normal", ttl="3600s"),
-            {"collapse_key": "group", "priority": "normal", "ttl": "3600s"}
+            {"collapse_key": "group", "priority": "normal", "ttl": "3600s"},
         ),
         (
-            ApsAlert(title="push-title", body="push-body"), {"title": "push-title", "body": "push-body"}
+            ApsAlert(title="push-title", body="push-body"),
+            {"title": "push-title", "body": "push-body"},
         ),
-        (
-            Aps(alert="alert", badge=9), {"alert": "alert", "badge": 9}
-        ),
+        (Aps(alert="alert", badge=9), {"alert": "alert", "badge": 9}),
         (
             APNSPayload(aps=Aps(alert="push-text", custom_data={"foo": "bar"})),
-            {"aps": {"alert": "push-text", "custom_data": {"foo": "bar"}}}
+            {"aps": {"alert": "push-text", "custom_data": {"foo": "bar"}}},
         ),
         (
-            APNSConfig(headers={"x-header": "x-data"}), {"headers": {"x-header": "x-data"}}
+            APNSConfig(headers={"x-header": "x-data"}),
+            {"headers": {"x-header": "x-data"}},
         ),
         (
-            Notification(title="push-title", body="push-body"), {"title": "push-title", "body": "push-body"}
+            Notification(title="push-title", body="push-body"),
+            {"title": "push-title", "body": "push-body"},
         ),
         (
             Message(
@@ -181,19 +197,17 @@ async def test_make_async_pre_created_thread_pool_executor():
                         aps=Aps(
                             sound="generic",
                         ),
-                    )
-                )
+                    ),
+                ),
             ),
             {
                 "token": "qwerty",
                 "notification": {"title": "push-title", "body": "push-body"},
                 "apns": {
                     "headers": {"hdr": "qwe"},
-                    "payload": {
-                        "aps": {"sound": "generic"}
-                    }
-                }
-            }
+                    "payload": {"aps": {"sound": "generic"}},
+                },
+            },
         ),
         (
             PushNotification(
@@ -202,11 +216,8 @@ async def test_make_async_pre_created_thread_pool_executor():
                     notification=Notification(title="push-title", body="push-body"),
                     android=AndroidConfig(
                         collapse_key="group",
-                        notification=AndroidNotification(
-                            title="android-push-title",
-                            body="android-push-body"
-                        )
-                    )
+                        notification=AndroidNotification(title="android-push-title", body="android-push-body"),
+                    ),
                 )
             ),
             {
@@ -215,10 +226,13 @@ async def test_make_async_pre_created_thread_pool_executor():
                     "notification": {"title": "push-title", "body": "push-body"},
                     "android": {
                         "collapse_key": "group",
-                        "notification": {"title": "android-push-title", "body": "android-push-body"}
-                    }
+                        "notification": {
+                            "title": "android-push-title",
+                            "body": "android-push-body",
+                        },
+                    },
                 },
-                "validate_only": False
+                "validate_only": False,
             },
         ),
         (
@@ -227,10 +241,7 @@ async def test_make_async_pre_created_thread_pool_executor():
                     token="secret-token",
                     android=AndroidConfig(
                         collapse_key="group",
-                        notification=AndroidNotification(
-                            title="android-push-title",
-                            body="android-push-body"
-                        )
+                        notification=AndroidNotification(title="android-push-title", body="android-push-body"),
                     ),
                     apns=APNSConfig(
                         headers={
@@ -249,8 +260,8 @@ async def test_make_async_pre_created_thread_pool_executor():
                             },
                             "custom_attr_1": "value_1",
                             "custom_attr_2": 42,
-                        }
-                    )
+                        },
+                    ),
                 )
             ),
             {
@@ -258,7 +269,10 @@ async def test_make_async_pre_created_thread_pool_executor():
                     "token": "secret-token",
                     "android": {
                         "collapse_key": "group",
-                        "notification": {"title": "android-push-title", "body": "android-push-body"}
+                        "notification": {
+                            "title": "android-push-title",
+                            "body": "android-push-body",
+                        },
                     },
                     "apns": {
                         "headers": {
@@ -277,13 +291,13 @@ async def test_make_async_pre_created_thread_pool_executor():
                             },
                             "custom_attr_1": "value_1",
                             "custom_attr_2": 42,
-                        }
-                    }
+                        },
+                    },
                 },
-                "validate_only": False
+                "validate_only": False,
             },
         ),
-    )
+    ),
 )
 def test_cleanup_firebase_message(firebase_message, exp_result):
     result = cleanup_firebase_message(firebase_message)
