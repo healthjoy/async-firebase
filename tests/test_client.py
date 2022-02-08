@@ -131,16 +131,12 @@ async def test__prepare_headers(fake_async_fcm_client_w_creds):
         }
 
 
-async def test_push(
-    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock
-):
+async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
         status_code=200,
-        json={
-            "name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"
-        },
+        json={"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"},
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
         priority="normal",
@@ -150,17 +146,11 @@ async def test_push(
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(
-        device_token=fake_device_token, apns=apns_config
-    )
-    assert response == {
-        "name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
-    }
+    response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config)
+    assert response == {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"}
 
 
-async def test_push_dry_run(
-    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock
-):
+async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
@@ -175,15 +165,11 @@ async def test_push_dry_run(
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(
-        device_token=fake_device_token, apns=apns_config, dry_run=True
-    )
+    response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config, dry_run=True)
     assert response == {"name": "projects/fake-mobile-app/messages/fake_message_id"}
 
 
-async def test_push_unauthenticated(
-    fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock
-):
+async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(
         status_code=401,
@@ -206,9 +192,7 @@ async def test_push_unauthenticated(
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(
-        device_token="qwerty:ytrewq", apns=apns_config
-    )
+    response = await fake_async_fcm_client_w_creds.push(device_token="qwerty:ytrewq", apns=apns_config)
     assert response["error"]["code"] == 401
 
 
@@ -222,23 +206,17 @@ def test_creds_from_service_account_info(fake_async_fcm_client, fake_service_acc
     assert isinstance(fake_async_fcm_client._credentials, service_account.Credentials)
 
 
-def test_creds_from_service_account_file(
-    fake_async_fcm_client, fake_service_account_file
-):
+def test_creds_from_service_account_file(fake_async_fcm_client, fake_service_account_file):
     fake_async_fcm_client.creds_from_service_account_file(fake_service_account_file)
     assert isinstance(fake_async_fcm_client._credentials, service_account.Credentials)
 
 
-async def test_push_realistic_payload(
-    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock
-):
+async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
         status_code=200,
-        json={
-            "name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"
-        },
+        json={"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"},
     )
     apns_config: APNSConfig = fake_async_fcm_client_w_creds.build_apns_config(
         priority="normal",
@@ -255,9 +233,7 @@ async def test_push_realistic_payload(
         mutable_content=True,
         content_available=True,
     )
-    await fake_async_fcm_client_w_creds.push(
-        device_token=fake_device_token, apns=apns_config
-    )
+    await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config)
     request_payload = json.loads(httpx_mock.get_requests()[0].read())
     assert request_payload == {
         "message": {

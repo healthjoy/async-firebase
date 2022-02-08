@@ -68,9 +68,7 @@ class AsyncFirebaseClient:
         self._credentials: service_account.Credentials = credentials
         self.scopes: t.List[str] = scopes or self.SCOPES
 
-    def creds_from_service_account_info(
-        self, service_account_info: t.Dict[str, str]
-    ) -> None:
+    def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
         """Creates a Credentials instance from parsed service account info.
 
         :param service_account_info: the service account info in Google format.
@@ -79,9 +77,7 @@ class AsyncFirebaseClient:
             info=service_account_info, scopes=self.scopes
         )
 
-    def creds_from_service_account_file(
-        self, service_account_filename: t.Union[str, PurePath]
-    ) -> None:
+    def creds_from_service_account_file(self, service_account_filename: t.Union[str, PurePath]) -> None:
         """Creates a Credentials instance from a service account json file.
 
         :param service_account_filename: the path to the service account json file.
@@ -107,14 +103,10 @@ class AsyncFirebaseClient:
         ).encode("utf-8")
 
         async with httpx.AsyncClient() as client:
-            response: httpx.Response = await client.post(
-                self.TOKEN_URL, data=data, headers=headers
-            )
+            response: httpx.Response = await client.post(self.TOKEN_URL, data=data, headers=headers)
             response_data = response.json()
 
-        self._credentials.expiry = datetime.utcnow() + timedelta(
-            seconds=response_data["expires_in"]
-        )
+        self._credentials.expiry = datetime.utcnow() + timedelta(seconds=response_data["expires_in"])
         self._credentials.token = response_data["access_token"]
         return self._credentials.token
 
@@ -388,12 +380,8 @@ class AsyncFirebaseClient:
         )
 
         if len(push_notification["message"]) == 1:
-            logging.warning(
-                "No data has been provided to construct push notification payload"
-            )
-            raise ValueError(
-                "``messages.PushNotification`` cannot be assembled as data has not been provided"
-            )
+            logging.warning("No data has been provided to construct push notification payload")
+            raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
 
         response = await self._send_request(push_notification)
         return response.json()
@@ -409,9 +397,7 @@ class AsyncFirebaseClient:
                 self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
             )
             logging.debug("Requesting POST %s, payload: %s", url, payload)
-            response: httpx.Response = await client.post(
-                url, json=payload, headers=await self._prepare_headers()
-            )
+            response: httpx.Response = await client.post(url, json=payload, headers=await self._prepare_headers())
             logging.debug(
                 "Response Code: %s, Time spent to make a request: %s",
                 response.status_code,

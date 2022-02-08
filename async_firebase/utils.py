@@ -85,18 +85,11 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
     if is_dataclass(dataclass_obj):
         result = []
         for f in fields(dataclass_obj):
-            value = cleanup_firebase_message(
-                getattr(dataclass_obj, f.name), dict_factory
-            )
+            value = cleanup_firebase_message(getattr(dataclass_obj, f.name), dict_factory)
             result.append((f.name, value))
         return remove_null_values(dict_factory(result))
     elif isinstance(dataclass_obj, (list, tuple)):
         return type(dataclass_obj)(cleanup_firebase_message(v, dict_factory) for v in dataclass_obj)  # type: ignore
     elif isinstance(dataclass_obj, dict):
-        return remove_null_values(
-            {
-                k: cleanup_firebase_message(v, dict_factory)
-                for k, v in dataclass_obj.items()
-            }
-        )
+        return remove_null_values({k: cleanup_firebase_message(v, dict_factory) for k, v in dataclass_obj.items()})
     return deepcopy(dataclass_obj)

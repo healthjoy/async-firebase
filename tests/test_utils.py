@@ -216,9 +216,7 @@ async def test_make_async_pre_created_thread_pool_executor():
                     notification=Notification(title="push-title", body="push-body"),
                     android=AndroidConfig(
                         collapse_key="group",
-                        notification=AndroidNotification(
-                            title="android-push-title", body="android-push-body"
-                        ),
+                        notification=AndroidNotification(title="android-push-title", body="android-push-body"),
                     ),
                 )
             ),
@@ -243,9 +241,7 @@ async def test_make_async_pre_created_thread_pool_executor():
                     token="secret-token",
                     android=AndroidConfig(
                         collapse_key="group",
-                        notification=AndroidNotification(
-                            title="android-push-title", body="android-push-body"
-                        ),
+                        notification=AndroidNotification(title="android-push-title", body="android-push-body"),
                     ),
                     apns=APNSConfig(
                         headers={
