@@ -1,9 +1,33 @@
 # Changelog
 
+## 1.8.0
+
+  * Clean up. Remove dependencies and code that is no longer used.
+  * Update dependencies:
+    * Removed backports.entry-points-selectable (1.1.1)
+    * Removed chardet (4.0.0)
+    * Removed requests (2.25.1)
+    * Removed urllib3 (1.26.7)
+    * Updated idna (2.10 -> 3.3)
+    * Updated pyparsing (3.0.6 -> 3.0.7)
+    * Updated attrs (21.2.0 -> 21.4.0)
+    * Updated charset-normalizer (2.0.9 -> 2.0.12)
+    * Updated filelock (3.4.0 -> 3.4.1)
+    * Updated click (8.0.3 -> 8.0.4)
+    * Updated freezegun (1.1.0 -> 1.2.0)
+    * Updated identify (2.4.0 -> 2.4.4)
+    * Updated regex (2021.11.10 -> 2022.3.2)
+    * Installed tomli (1.2.3)
+    * Updated typed-ast (1.4.3 -> 1.5.2)
+    * Updated typing-extensions (4.0.1 -> 4.1.1)
+    * Updated virtualenv (20.10.0 -> 20.13.3)
+    * Updated google-auth (2.1.0 -> 2.6.0)
+    * Updated mypy (0.910 -> 0.931)
+
 ## 1.7.0
 
   * Make _get_access_token async
-  
+
 ## 1.6.0
 
   * Add support of Python 3.10
