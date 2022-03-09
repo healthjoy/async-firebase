@@ -20,7 +20,6 @@ from async_firebase.messages import (
 )
 from async_firebase.utils import (
     cleanup_firebase_message,
-    make_async,
     remove_null_values,
 )
 
@@ -77,86 +76,6 @@ pytestmark = pytest.mark.asyncio
 def test_remove_null_values(data, exp_result):
     result = remove_null_values(data)
     assert result == exp_result
-
-
-def test_make_async_ensure_coroutine_function():
-    @make_async
-    def func1():
-        return True
-
-    assert inspect.iscoroutinefunction(func1)
-
-
-async def test_make_async_get_result():
-    @make_async
-    def sync_func(seconds_to_block, event):
-        for i in range(seconds_to_block):
-            if event.is_set():
-                return
-            print("blocking {}/{}".format(i, seconds_to_block))
-            time.sleep(1)
-        print("done blocking {}".format(seconds_to_block))
-
-    async def count_sum(x, y):
-        return x + y
-
-    async def count_mul(x, y):
-        return x * y
-
-    event = threading.Event()
-    done, pending = await asyncio.wait(
-        [sync_func(100, event), count_sum(5, 5), count_mul(5, 5)],
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-    assert done
-    assert len(pending) == 1
-    sleeping_task = pending.pop()
-    assert not sleeping_task.done()
-    sleeping_task.cancel()
-    event.set()
-    try:
-        await asyncio.gather(sleeping_task)
-    except asyncio.CancelledError:
-        pass
-    assert sleeping_task.cancelled()
-
-
-async def test_make_async_pre_created_loop():
-    @make_async
-    def func1(loop=None):
-        return
-
-    pre_created_loop = asyncio.get_event_loop()
-    pre_created_loop.create_task(func1(loop=pre_created_loop))
-
-    is_python36 = sys.version_info < (3, 7)
-    if is_python36:
-        all_tasks = asyncio.tasks.Task.all_tasks()
-        current_task = asyncio.tasks.Task.current_task()
-    else:
-        all_tasks = asyncio.all_tasks()
-        current_task = asyncio.current_task()
-
-    for task in all_tasks:
-        if task == current_task:
-            continue
-        if is_python36:
-            assert id(task._loop) == id(pre_created_loop)
-        else:
-            assert id(task.get_loop()) == id(pre_created_loop)
-
-
-async def test_make_async_pre_created_thread_pool_executor():
-    @make_async
-    def func1(executor=None):
-        return threading.get_ident()
-
-    thread_pool_executor = ThreadPoolExecutor(1)
-    thread_id = await func1(executor=thread_pool_executor)
-
-    thread = thread_pool_executor._threads.copy().pop()
-    assert thread.ident == thread_id
-    thread_pool_executor.shutdown(wait=True)
 
 
 @pytest.mark.parametrize(
