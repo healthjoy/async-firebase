@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.0
+
+  * Add support of [MulticastMessage](https://firebase.google.com/docs/reference/admin/java/reference/com/google/firebase/messaging/MulticastMessage)
+
 ## 1.8.0
 
   * Clean up. Remove dependencies and code that is no longer used.

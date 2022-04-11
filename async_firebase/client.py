@@ -23,12 +23,14 @@ from .messages import (
     Aps,
     ApsAlert,
     Message,
+    MulticastMessage,
     Notification,
     PushNotification,
 )
 from .utils import cleanup_firebase_message
 
 DEFAULT_TTL = 604800
+MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
 
 
 class AsyncFirebaseClient:
@@ -67,6 +69,32 @@ class AsyncFirebaseClient:
         """
         self._credentials: service_account.Credentials = credentials
         self.scopes: t.List[str] = scopes or self.SCOPES
+
+    @staticmethod
+    def assemble_push_notification(
+        *,
+        apns_config: t.Optional[APNSConfig],
+        message: t.Union[Message, MulticastMessage],
+        dry_run: bool,
+    ) -> t.Dict[str, t.Any]:
+        """Assemble ``messages.PushNotification`` object properly.
+
+        :param apns_config: instance of ``messages.APNSConfig``
+        :param dry_run: A boolean indicating whether to run the operation in dry run mode
+        :param message: an instance of ``messages.Message`` or ``messages.MulticastMessage``
+        :return: dictionary with push notification data ready to send
+        """
+        has_apns_config = True if apns_config and apns_config.payload else False
+        if has_apns_config:
+            message.apns.payload = aps_encoder(apns_config.payload.aps)  # type: ignore
+
+        push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
+            PushNotification(message=message, validate_only=dry_run)
+        )
+        if len(push_notification["message"]) == 1:
+            logging.warning("No data has been provided to construct push notification payload")
+            raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
+        return push_notification
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
         """Creates a Credentials instance from parsed service account info.
@@ -370,19 +398,51 @@ class AsyncFirebaseClient:
             condition=condition,
         )
 
-        # Assemble APNS custom data properly
-        has_apns_config = True if apns and apns.payload else False
-        if has_apns_config:
-            message.apns.payload = aps_encoder(apns.payload.aps)  # type: ignore
+        push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
+        response = await self._send_request(push_notification)
+        return response.json()
 
-        push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
-            PushNotification(message=message, validate_only=dry_run)
+    async def push_multicast(
+        self,
+        device_tokens: t.Union[t.List[str], t.Tuple[str]],
+        *,
+        android: t.Optional[AndroidConfig] = None,
+        apns: t.Optional[APNSConfig] = None,
+        data: t.Optional[t.Dict[str, str]] = None,
+        notification: t.Optional[Notification] = None,
+        webpush: t.Optional[t.Dict[str, str]] = None,
+        dry_run: bool = False,
+    ) -> t.List[t.Dict[str, t.Any]]:
+        """Send Multicast push notification.
+
+        :param device_tokens: the list of device tokens to send targeted notifications to a set of instances of app.
+            May contain up to 500 device tokens.
+        :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
+        :param apns: as instance of ``messages.APNSConfig`` that contains iOS-specific options.
+        :param data: a dictionary of data fields. All keys and values in the dictionary must be strings.
+        :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
+            in a resulting message.
+        :param webpush: an instance of ``messages.WebpushConfig``. NOT IMPLEMENTED YET.
+        :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
+            without actually delivering the message. Default to ``False``.
+        """
+
+        if len(device_tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
+            raise ValueError(
+                f"A single ``messages.MulticastMessage`` may contain up to {MULTICAST_MESSAGE_MAX_DEVICE_TOKENS} "
+                "device tokens."
+            )
+
+        message = MulticastMessage(
+            tokens=device_tokens,
+            data=data or {},
+            notification=notification,
+            android=android,
+            webpush=webpush or {},
+            apns=apns,
         )
 
-        if len(push_notification["message"]) == 1:
-            logging.warning("No data has been provided to construct push notification payload")
-            raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
-
+        push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
         response = await self._send_request(push_notification)
         return response.json()
 

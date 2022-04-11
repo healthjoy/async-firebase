@@ -15,6 +15,8 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
+    Message,
+    MulticastMessage,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -35,6 +37,11 @@ def fake_async_fcm_client_w_creds(fake_async_fcm_client, fake_service_account):
 @pytest.fixture()
 def fake_device_token(faker_):
     return faker_.bothify(text=f"{'?' * 12}:{'?' * 256}")
+
+
+@pytest.fixture()
+def fake_multi_device_tokens(faker_, request):
+    return [faker_.bothify(text=f"{'?' * 12}:{'?' * 256}") for _ in range(request.param)]
 
 
 async def fake__get_access_token():
@@ -256,3 +263,258 @@ async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device
         },
         "validate_only": False,
     }
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (5,), indirect=True)
+async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json=[
+            {"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"},
+            {"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb25"},
+            {"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb26"},
+            {"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb27"},
+            {"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb28"},
+        ]
+    )
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    response = await fake_async_fcm_client_w_creds.push_multicast(
+        device_tokens=fake_multi_device_tokens, apns=apns_config
+    )
+    assert response == [
+        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"},
+        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"},
+        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"},
+        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb27"},
+        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb28"},
+    ]
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (5,), indirect=True)
+async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json=[
+            {"name": f"projects/{creds.project_id}/messages/fake_message_id_1"},
+            {"name": f"projects/{creds.project_id}/messages/fake_message_id_2"},
+            {"name": f"projects/{creds.project_id}/messages/fake_message_id_3"},
+            {"name": f"projects/{creds.project_id}/messages/fake_message_id_4"},
+            {"name": f"projects/{creds.project_id}/messages/fake_message_id_5"},
+        ]
+    )
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    response = await fake_async_fcm_client_w_creds.push_multicast(
+        device_tokens=fake_multi_device_tokens, apns=apns_config, dry_run=True
+    )
+    assert response == [
+        {"name": "projects/fake-mobile-app/messages/fake_message_id_1"},
+        {"name": "projects/fake-mobile-app/messages/fake_message_id_2"},
+        {"name": "projects/fake-mobile-app/messages/fake_message_id_3"},
+        {"name": "projects/fake-mobile-app/messages/fake_message_id_4"},
+        {"name": "projects/fake-mobile-app/messages/fake_message_id_5"},
+    ]
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
+async def test_push_multicast_too_many_tokens(
+    fake_async_fcm_client_w_creds,
+    fake_multi_device_tokens,
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    with pytest.raises(ValueError):
+        await fake_async_fcm_client_w_creds.push_multicast(
+            device_tokens=fake_multi_device_tokens, apns=apns_config, dry_run=True
+        )
+
+
+async def test_push_multicast_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        status_code=401,
+        json={
+            "error": {
+                "code": 401,
+                "message": "Request had invalid authentication credentials. "
+                "Expected OAuth 2 access token, login cookie or other "
+                "valid authentication credential. See "
+                "https://developers.google.com/identity/sign-in/web/devconsole-project.",
+                "status": "UNAUTHENTICATED",
+            }
+        },
+    )
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    response = await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["qwerty:ytrewq"], apns=apns_config)
+    assert response["error"]["code"] == 401
+
+
+async def test_push_multicast_data_has_not_provided(fake_async_fcm_client_w_creds):
+    with pytest.raises(ValueError):
+        await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["device_id:device_token"])
+
+
+@pytest.mark.parametrize(
+    "apns_config, message, exp_push_notification", (
+        (
+            None,
+            Message(
+                token="token-1",
+                data={"text": "hello"},
+            ),
+            {
+                "message": {
+                    "token": "token-1",
+                    "data": {"text": "hello"}
+                },
+                "validate_only": True,
+            }
+        ),
+        (
+            APNSConfig(),
+            Message(
+                token="token-1",
+                data={"text": "hello"},
+            ),
+            {
+                "message": {
+                    "token": "token-1",
+                    "data": {"text": "hello"}
+                },
+                "validate_only": True,
+            }
+        ),
+        (
+            APNSConfig(
+                payload=APNSPayload(
+                    aps=Aps(
+                        alert="push-text",
+                        badge=5,
+                        sound="default",
+                        content_available=True,
+                        category="NEW_MESSAGE",
+                        mutable_content=False,
+                    )
+                )
+            ),
+            Message(token="token-1", apns=APNSConfig(payload=APNSPayload())),
+            {
+                "message": {
+                    "token": "token-1",
+                    "apns": {
+                        "payload": {
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            }
+                        }
+                    }
+                },
+                "validate_only": True,
+            }
+        ),
+        (
+            None,
+            MulticastMessage(
+                tokens=["token-1", "token-2"],
+                data={"text": "hello"},
+            ),
+            {
+                "message": {
+                    "tokens": ["token-1", "token-2"],
+                    "data": {"text": "hello"}
+                },
+                "validate_only": True,
+            }
+        ),
+        (
+            APNSConfig(),
+            MulticastMessage(
+                tokens=["token-1", "token-2"],
+                data={"text": "hello"}
+            ),
+            {
+                "message": {
+                    "tokens": ["token-1", "token-2"],
+                    "data": {"text": "hello"}
+                },
+                "validate_only": True,
+            }
+        ),
+        (
+            APNSConfig(
+                payload=APNSPayload(
+                    aps=Aps(
+                        alert="push-text",
+                        badge=5,
+                        sound="default",
+                        content_available=True,
+                        category="NEW_MESSAGE",
+                        mutable_content=False,
+                    )
+                )
+            ),
+            MulticastMessage(tokens=["token-1", "token-2"], apns=APNSConfig(payload=APNSPayload())),
+            {
+                "message": {
+                    "tokens": ["token-1", "token-2"],
+                    "apns": {
+                        "payload": {
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            }
+                        }
+                    }
+                },
+                "validate_only": True,
+            }
+        ),
+    )
+)
+def test_assemble_push_notification(fake_async_fcm_client_w_creds, apns_config, message, exp_push_notification):
+    push_notification = fake_async_fcm_client_w_creds.assemble_push_notification(
+        apns_config=apns_config,
+        dry_run=True,
+        message=message
+    )
+    assert push_notification == exp_push_notification
