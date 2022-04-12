@@ -204,14 +204,35 @@ class Message:
 
 
 @dataclass
+class MulticastMessage:
+    """A message that can be sent to multiple tokens via Firebase.
+
+    Attributes:
+    tokens: the list of registration tokens to which the message should be sent.
+    data: a dictionary of data fields (optional). All keys and values in the dictionary must be strings.
+    notification: an instance of ``messages.Notification`` (optional).
+    android: an instance of ``messages.AndroidConfig`` (optional).
+    webpush: an instance of ``messages.WebpushConfig`` (optional). NOT IMPLEMENTED YET.
+    apns: an instance of ``messages.ApnsConfig`` (optional).
+    """
+
+    tokens: t.Union[t.List[str], t.Tuple[str]]
+    data: t.Dict[str, str] = field(default_factory=dict)
+    notification: t.Optional[Notification] = field(default=None)
+    android: t.Optional[AndroidConfig] = field(default=None)
+    webpush: t.Dict[str, str] = field(default_factory=dict)
+    apns: t.Optional[APNSConfig] = field(default=None)
+
+
+@dataclass
 class PushNotification:
     """
     The payload that is sent to Firebase Cloud Messaging.
 
     Attributes:
-    message: an instance of ``messages.Message``.
+    message: an instance of ``messages.Message`` or ``messages.MulticastMessage``.
     validate_only: a boolean indicating whether to run the operation in dry run mode (optional).
     """
 
-    message: Message
+    message: t.Union[Message, MulticastMessage]
     validate_only: t.Optional[bool] = field(default=False)

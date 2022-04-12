@@ -8,6 +8,7 @@ from async_firebase.messages import (
     Aps,
     ApsAlert,
     Message,
+    MulticastMessage,
     Notification,
     PushNotification,
 )
@@ -179,6 +180,90 @@ def test_remove_null_values(data, exp_result):
             {
                 "message": {
                     "token": "secret-token",
+                    "android": {
+                        "collapse_key": "group",
+                        "notification": {
+                            "title": "android-push-title",
+                            "body": "android-push-body",
+                        },
+                    },
+                    "apns": {
+                        "headers": {
+                            "apns-expiration": "1621594859",
+                            "apns-priority": "5",
+                            "apns-collapse-id": "ENTITY_UPDATED",
+                        },
+                        "payload": {
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            },
+                            "custom_attr_1": "value_1",
+                            "custom_attr_2": 42,
+                        },
+                    },
+                },
+                "validate_only": False,
+            },
+        ),
+        (
+            MulticastMessage(
+                tokens=["qwerty_1", "query_2"],
+                notification=Notification(title="push-title", body="push-body"),
+                apns=APNSConfig(
+                    headers={"hdr": "qwe"},
+                    payload=APNSPayload(
+                        aps=Aps(
+                            sound="generic",
+                        ),
+                    ),
+                ),
+            ),
+            {
+                "tokens": ["qwerty_1", "query_2"],
+                "notification": {"title": "push-title", "body": "push-body"},
+                "apns": {
+                    "headers": {"hdr": "qwe"},
+                    "payload": {"aps": {"sound": "generic"}},
+                },
+            },
+        ),
+(
+            PushNotification(
+                message=MulticastMessage(
+                    tokens=["secret-token-1", "secret-token-2"],
+                    android=AndroidConfig(
+                        collapse_key="group",
+                        notification=AndroidNotification(title="android-push-title", body="android-push-body"),
+                    ),
+                    apns=APNSConfig(
+                        headers={
+                            "apns-expiration": "1621594859",
+                            "apns-priority": "5",
+                            "apns-collapse-id": "ENTITY_UPDATED",
+                        },
+                        payload={
+                            "aps": {
+                                "alert": "push-text",
+                                "badge": 5,
+                                "sound": "default",
+                                "content-available": True,
+                                "category": "NEW_MESSAGE",
+                                "mutable-content": False,
+                            },
+                            "custom_attr_1": "value_1",
+                            "custom_attr_2": 42,
+                        },
+                    ),
+                )
+            ),
+            {
+                "message": {
+                    "tokens": ["secret-token-1", "secret-token-2"],
                     "android": {
                         "collapse_key": "group",
                         "notification": {
