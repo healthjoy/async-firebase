@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.1
+
+  * [FIX] Method ``push_multicast``, currently, it sends invalid batch request.
+  * [FIX] Method ``assemble_push_notification`` that leads to anomalies because of data mutation.
+  * Deprecate ``messages.MulticastMessage`` as it's no longer used.
+
 ## 1.9.0
 
   * Add support of [MulticastMessage](https://firebase.google.com/docs/reference/admin/java/reference/com/google/firebase/messaging/MulticastMessage)
