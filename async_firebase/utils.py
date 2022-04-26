@@ -80,7 +80,8 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
 def serialize_mime_message(
     message: t.Union[MIMEMultipart, MIMENonMultipart], mangle_from: bool = None, max_header_len: int = None
 ) -> str:
-    """Serialize the MIME type message.
+    """
+    Serialize the MIME type message.
 
     :param message: MIME type message
     :param mangle_from: is a flag that, when True (the default if policy

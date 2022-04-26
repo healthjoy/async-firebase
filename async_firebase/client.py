@@ -83,7 +83,8 @@ class AsyncFirebaseClient:
         message: Message,
         dry_run: bool,
     ) -> t.Dict[str, t.Any]:
-        """Assemble ``messages.PushNotification`` object properly.
+        """
+        Assemble ``messages.PushNotification`` object properly.
 
         :param apns_config: instance of ``messages.APNSConfig``
         :param dry_run: A boolean indicating whether to run the operation in dry run mode
@@ -105,7 +106,8 @@ class AsyncFirebaseClient:
         return push_notification
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
-        """Creates a Credentials instance from parsed service account info.
+        """
+        Creates a Credentials instance from parsed service account info.
 
         :param service_account_info: the service account info in Google format.
         """
@@ -114,7 +116,8 @@ class AsyncFirebaseClient:
         )
 
     def creds_from_service_account_file(self, service_account_filename: t.Union[str, PurePath]) -> None:
-        """Creates a Credentials instance from a service account json file.
+        """
+        Creates a Credentials instance from a service account json file.
 
         :param service_account_filename: the path to the service account json file.
         """
@@ -127,6 +130,7 @@ class AsyncFirebaseClient:
         )
 
     async def _get_access_token(self) -> str:
+        """Get OAuth 2 access token."""
         if self._credentials.valid:
             return self._credentials.token
 
@@ -325,7 +329,8 @@ class AsyncFirebaseClient:
 
     @staticmethod
     def _serialize_batch_request(request: httpx.Request) -> str:
-        """Convert an HttpRequest object into a string.
+        """
+        Convert an HttpRequest object into a string.
 
         :param request: `httpx.Request`, the request to serialize.
         :return: a string in application/http format.
@@ -352,7 +357,8 @@ class AsyncFirebaseClient:
 
     @staticmethod
     def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
-        """Convert batch response into list of `httpx.Response` responses for each multipart.
+        """
+        Convert batch response into list of `httpx.Response` responses for each multipart.
 
         :param response: string, headers and body as a string.
         :return: list of `httpx.Response` responses.
@@ -374,7 +380,7 @@ class AsyncFirebaseClient:
         for part in mime_response.get_payload():
             request_id = part["Content-ID"].split("-", 1)[-1]
             status_line, payload = part.get_payload().split("\n", 1)
-            protocol, status_code, _ = status_line.split(" ", 2)
+            _, status_code, _ = status_line.split(" ", 2)
 
             # Parse the rest of the response
             parser = FeedParser()
@@ -418,7 +424,8 @@ class AsyncFirebaseClient:
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
     ) -> t.Dict[str, t.Any]:
-        """Send push notification.
+        """
+        Send push notification.
 
         :param device_token: device token allows to send targeted notifications to a particular instance of app.
         :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
@@ -499,7 +506,8 @@ class AsyncFirebaseClient:
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
     ) -> t.List[t.Dict[str, t.Any]]:
-        """Send Multicast push notification.
+        """
+        Send Multicast push notification.
 
         :param device_tokens: the list of device tokens to send targeted notifications to a set of instances of app.
             May contain up to 500 device tokens.
@@ -570,7 +578,8 @@ class AsyncFirebaseClient:
         headers: t.Dict[str, str] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes]] = None,
     ) -> httpx.Response:
-        """Sends an HTTP call using the ``httpx`` library.
+        """
+        Sends an HTTP call using the ``httpx`` library.
 
         :param uri: URI to be requested.
         :param json_payload: request JSON payload
