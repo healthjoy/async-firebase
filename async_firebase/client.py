@@ -402,7 +402,7 @@ class AsyncFirebaseClient:
             "Content-Type": "application/json; UTF-8",
             "X-Request-Id": self._get_request_id(),
             "X-GOOG-API-FORMAT-VERSION": "2",
-            "X-FIREBASE-CLIENT": 'async-firebase/{0}'.format(pkg_resources.get_distribution('async-firebase').version),
+            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
         }
 
     async def push(  # pylint: disable=too-many-locals
