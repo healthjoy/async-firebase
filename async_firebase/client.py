@@ -4,18 +4,24 @@ The module houses client to communicate with FCM - Firebase Cloud Messaging (And
 Documentation for google-auth package https://google-auth.readthedocs.io/en/latest/user-guide.html that is used
 to authorize request which is being made to Firebase.
 """
+import json
 import logging
 import typing as t
 import uuid
+from dataclasses import replace
 from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.nonmultipart import MIMENonMultipart
+from email.parser import FeedParser
 from pathlib import PurePath
 from urllib.parse import urlencode, urljoin
 
 import httpx
 from google.oauth2 import service_account  # type: ignore
 
-from .encoders import aps_encoder
-from .messages import (
+import pkg_resources  # type: ignore
+from async_firebase.encoders import aps_encoder
+from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
     APNSConfig,
@@ -23,11 +29,10 @@ from .messages import (
     Aps,
     ApsAlert,
     Message,
-    MulticastMessage,
     Notification,
     PushNotification,
 )
-from .utils import cleanup_firebase_message
+from async_firebase.utils import cleanup_firebase_message, serialize_mime_message
 
 DEFAULT_TTL = 604800
 MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
@@ -43,6 +48,7 @@ class AsyncFirebaseClient:
     BASE_URL: str = "https://fcm.googleapis.com"
     TOKEN_URL: str = "https://oauth2.googleapis.com/token"
     FCM_ENDPOINT: str = "/v1/projects/{project_id}/messages:send"
+    FCM_BATCH_ENDPOINT: str = "/batch"
     # A list of accessible OAuth 2.0 scopes can be found https://developers.google.com/identity/protocols/oauth2/scopes.
     SCOPES: t.List[str] = [
         "https://www.googleapis.com/auth/cloud-platform",
@@ -74,18 +80,21 @@ class AsyncFirebaseClient:
     def assemble_push_notification(
         *,
         apns_config: t.Optional[APNSConfig],
-        message: t.Union[Message, MulticastMessage],
+        message: Message,
         dry_run: bool,
     ) -> t.Dict[str, t.Any]:
-        """Assemble ``messages.PushNotification`` object properly.
+        """
+        Assemble ``messages.PushNotification`` object properly.
 
         :param apns_config: instance of ``messages.APNSConfig``
         :param dry_run: A boolean indicating whether to run the operation in dry run mode
-        :param message: an instance of ``messages.Message`` or ``messages.MulticastMessage``
+        :param message: an instance of ``messages.Message``
         :return: dictionary with push notification data ready to send
         """
         has_apns_config = True if apns_config and apns_config.payload else False
         if has_apns_config:
+            # avoid mutation of active message
+            message.apns = replace(message.apns)
             message.apns.payload = aps_encoder(apns_config.payload.aps)  # type: ignore
 
         push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
@@ -97,7 +106,8 @@ class AsyncFirebaseClient:
         return push_notification
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
-        """Creates a Credentials instance from parsed service account info.
+        """
+        Creates a Credentials instance from parsed service account info.
 
         :param service_account_info: the service account info in Google format.
         """
@@ -106,7 +116,8 @@ class AsyncFirebaseClient:
         )
 
     def creds_from_service_account_file(self, service_account_filename: t.Union[str, PurePath]) -> None:
-        """Creates a Credentials instance from a service account json file.
+        """
+        Creates a Credentials instance from a service account json file.
 
         :param service_account_filename: the path to the service account json file.
         """
@@ -119,6 +130,7 @@ class AsyncFirebaseClient:
         )
 
     async def _get_access_token(self) -> str:
+        """Get OAuth 2 access token."""
         if self._credentials.valid:
             return self._credentials.token
 
@@ -192,15 +204,12 @@ class AsyncFirebaseClient:
             rules on per-channel basis (optional).
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
-        if data:
-            data = {str(key): str(value) for key, value in data.items()}
-
         android_config = AndroidConfig(
             collapse_key=collapse_key,
             priority=priority,
             ttl=f"{int(ttl.total_seconds()) if isinstance(ttl, timedelta) else ttl}s",
             restricted_package_name=restricted_package_name,
-            data=data or {},
+            data={str(key): str(value) for key, value in data.items()} if data else {},
             notification=AndroidNotification(
                 title=title,
                 body=body,
@@ -313,6 +322,83 @@ class AsyncFirebaseClient:
 
         return apns_config
 
+    @staticmethod
+    def _get_request_id():
+        """Generate unique request ID."""
+        return str(uuid.uuid4())
+
+    @staticmethod
+    def _serialize_batch_request(request: httpx.Request) -> str:
+        """
+        Convert an HttpRequest object into a string.
+
+        :param request: `httpx.Request`, the request to serialize.
+        :return: a string in application/http format.
+        """
+        status_line = f"{request.method} {request.url.path} HTTP/1.1\n"
+        major, minor = request.headers.get("content-type", "application/json").split("/")
+        msg = MIMENonMultipart(major, minor)
+        headers = request.headers.copy()
+
+        # MIMENonMultipart adds its own Content-Type header.
+        if "content-type" in headers:
+            del headers["content-type"]
+
+        for key, value in headers.items():
+            msg[key] = value
+        msg.set_unixfrom(None)  # type: ignore
+
+        if request.content is not None:
+            msg.set_payload(request.content)
+            msg["content-length"] = str(len(request.content))
+
+        body = serialize_mime_message(msg, max_header_len=0)
+        return f"{status_line}{body}"
+
+    @staticmethod
+    def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
+        """
+        Convert batch response into list of `httpx.Response` responses for each multipart.
+
+        :param response: string, headers and body as a string.
+        :return: list of `httpx.Response` responses.
+        """
+        # Prepend with a content-type header so FeedParser can handle it.
+        header = f"content-type: {response.headers['content-type']}\r\n\r\n"
+        # PY3's FeedParser only accepts unicode. So we should decode content here, and encode each payload again.
+        content = response.content.decode()
+        for_parser = f"{header}{content}"
+
+        parser = FeedParser()
+        parser.feed(for_parser)
+        mime_response = parser.close()
+
+        if not mime_response.is_multipart():
+            raise ValueError("Response not in multipart/mixed format.")
+
+        responses = []
+        for part in mime_response.get_payload():
+            request_id = part["Content-ID"].split("-", 1)[-1]
+            status_line, payload = part.get_payload().split("\n", 1)
+            _, status_code, _ = status_line.split(" ", 2)
+
+            # Parse the rest of the response
+            parser = FeedParser()
+            parser.feed(payload)
+            msg = parser.close()
+            msg["status_code"] = status_code
+
+            # Create httpx.Response from the parsed headers.
+            resp = httpx.Response(
+                status_code=status_code,
+                headers=httpx.Headers({"Content-Type": msg.get_content_type(), "X-Request-ID": request_id}),
+                content=msg.get_payload(),
+                json=json.loads(msg.get_payload()),
+            )
+            responses.append(resp)
+
+        return responses
+
     async def _prepare_headers(self):
         """Prepare HTTP headers that will be used to request Firebase Cloud Messaging."""
         logging.debug("Preparing HTTP headers for all the subsequent requests")
@@ -320,7 +406,9 @@ class AsyncFirebaseClient:
         return {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; UTF-8",
-            "X-Request-Id": str(uuid.uuid4()),
+            "X-Request-Id": self._get_request_id(),
+            "X-GOOG-API-FORMAT-VERSION": "2",
+            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
         }
 
     async def push(  # pylint: disable=too-many-locals
@@ -336,7 +424,8 @@ class AsyncFirebaseClient:
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
     ) -> t.Dict[str, t.Any]:
-        """Send push notification.
+        """
+        Send push notification.
 
         :param device_token: device token allows to send targeted notifications to a particular instance of app.
         :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
@@ -399,7 +488,11 @@ class AsyncFirebaseClient:
         )
 
         push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
-        response = await self._send_request(push_notification)
+        response = await self._send_request(
+            uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
+            json_payload=push_notification,
+            headers=await self._prepare_headers(),
+        )
         return response.json()
 
     async def push_multicast(
@@ -413,7 +506,8 @@ class AsyncFirebaseClient:
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
     ) -> t.List[t.Dict[str, t.Any]]:
-        """Send Multicast push notification.
+        """
+        Send Multicast push notification.
 
         :param device_tokens: the list of device tokens to send targeted notifications to a set of instances of app.
             May contain up to 500 device tokens.
@@ -433,31 +527,80 @@ class AsyncFirebaseClient:
                 "device tokens."
             )
 
-        message = MulticastMessage(
-            tokens=device_tokens,
-            data=data or {},
-            notification=notification,
-            android=android,
-            webpush=webpush or {},
-            apns=apns,
+        multipart_message = MIMEMultipart("mixed")
+        # Message should not write out it's own headers.
+        setattr(multipart_message, "_write_headers", lambda self: None)
+
+        for device_token in device_tokens:
+            msg = MIMENonMultipart("application", "http")
+            msg["Content-Transfer-Encoding"] = "binary"
+            msg["Content-ID"] = self._get_request_id()
+            push_notification = self.assemble_push_notification(
+                apns_config=apns,
+                dry_run=dry_run,
+                message=Message(
+                    token=device_token,
+                    data=data or {},
+                    notification=notification,
+                    android=android,
+                    webpush=webpush or {},
+                    apns=apns,
+                ),
+            )
+            body = self._serialize_batch_request(
+                httpx.Request(
+                    method="POST",
+                    url=urljoin(
+                        self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
+                    ),
+                    headers=await self._prepare_headers(),
+                    content=json.dumps(push_notification),
+                )
+            )
+            msg.set_payload(body)
+            multipart_message.attach(msg)
+
+        # encode the body: note that we can't use `as_string`, because it plays games with `From ` lines.
+        body = serialize_mime_message(multipart_message, mangle_from=False)
+
+        batch_response = await self._send_request(
+            uri=self.FCM_BATCH_ENDPOINT,
+            content=body,
+            headers={"Content-Type": f"multipart/mixed; boundary={multipart_message.get_boundary()}"},
         )
 
-        push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
-        response = await self._send_request(push_notification)
-        return response.json()
+        return [response.json() for response in self._deserialize_batch_response(batch_response)]
 
-    async def _send_request(self, payload: t.Dict[str, t.Any]) -> httpx.Response:
-        """Sends an HTTP call using the ``httpx`` library.
+    async def _send_request(
+        self,
+        uri: str,
+        json_payload: t.Dict[str, t.Any] = None,
+        headers: t.Dict[str, str] = None,
+        content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes]] = None,
+    ) -> httpx.Response:
+        """
+        Sends an HTTP call using the ``httpx`` library.
 
-        :param payload: request payload
+        :param uri: URI to be requested.
+        :param json_payload: request JSON payload
+        :param headers: request headers.
+        :param content: request content
         :return: HTTP response
         """
-        async with httpx.AsyncClient() as client:
-            url = urljoin(
-                self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
+        async with httpx.AsyncClient(base_url=self.BASE_URL) as client:
+            logging.debug(
+                "Requesting POST %s, payload: %s, content: %s, headers: %s",
+                urljoin(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)),
+                json_payload,
+                content,
+                headers,
             )
-            logging.debug("Requesting POST %s, payload: %s", url, payload)
-            response: httpx.Response = await client.post(url, json=payload, headers=await self._prepare_headers())
+            response: httpx.Response = await client.post(
+                uri,
+                json=json_payload,
+                headers=headers or await self._prepare_headers(),
+                content=content,
+            )
             logging.debug(
                 "Response Code: %s, Time spent to make a request: %s",
                 response.status_code,

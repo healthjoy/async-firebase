@@ -1,6 +1,10 @@
+import io
 import typing as t
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
+from email.generator import Generator
+from email.mime.multipart import MIMEMultipart
+from email.mime.nonmultipart import MIMENonMultipart
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
@@ -71,3 +75,27 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
     elif isinstance(dataclass_obj, dict):
         return remove_null_values({k: cleanup_firebase_message(v, dict_factory) for k, v in dataclass_obj.items()})
     return deepcopy(dataclass_obj)
+
+
+def serialize_mime_message(
+    message: t.Union[MIMEMultipart, MIMENonMultipart], mangle_from: bool = None, max_header_len: int = None
+) -> str:
+    """
+    Serialize the MIME type message.
+
+    :param message: MIME type message
+    :param mangle_from: is a flag that, when True (the default if policy
+        is not set), escapes From_ lines in the body of the message by putting
+        a `>' in front of them.
+    :param max_header_len: specifies the longest length for a non-continued
+        header.  When a header line is longer (in characters, with tabs
+        expanded to 8 spaces) than max_header_len, the header will split as
+        defined in the Header class.  Set max_header_len to zero to disable
+        header wrapping. The default is 78, as recommended (but not required)
+        by RFC 2822.
+    :return: the entire contents of the object.
+    """
+    fp = io.StringIO()
+    gen = Generator(fp, mangle_from_=mangle_from, maxheaderlen=max_header_len)
+    gen.flatten(message, unixfrom=False)
+    return fp.getvalue()
