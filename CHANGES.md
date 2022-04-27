@@ -2,9 +2,9 @@
 
 ## 1.9.1
 
-  * [FIX] Method ``push_multicast``, currently, it sends invalid batch request.
-  * [FIX] Method ``assemble_push_notification`` that leads to anomalies because of data mutation.
-  * Deprecate ``messages.MulticastMessage`` as it's no longer used.
+  * [FIX] Invalid batch requests fixed in``push_multicast`` method.
+  * [FIX] Data mutation issues that lead to unexpected behaviour fixed in ``assemble_push_notification`` method.
+  * Message ``messages.MulticastMessage`` was deprecated as it's no longer used.
 
 ## 1.9.0
 
