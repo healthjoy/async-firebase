@@ -16,6 +16,7 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
+    FcmPushMulticastResponse,
     Message,
     FcmPushResponse,
 )
@@ -317,11 +318,18 @@ async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_t
     response = await fake_async_fcm_client_w_creds.push_multicast(
         device_tokens=fake_multi_device_tokens, apns=apns_config
     )
-    assert response == [
-        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"},
-        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"},
-        {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"},
-    ]
+    assert isinstance(response, FcmPushMulticastResponse)
+    assert response.success_count == 3
+    assert response.failure_count == 0
+    assert response.responses[0].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24" 
+    assert response.responses[1].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"
+    assert response.responses[2].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"
+
+    # assert response == [
+    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"},
+    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"},
+    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"},
+    # ]
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
@@ -359,11 +367,13 @@ async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_
     response = await fake_async_fcm_client_w_creds.push_multicast(
         device_tokens=fake_multi_device_tokens, apns=apns_config, dry_run=True
     )
-    assert response == [
-        {"name": "projects/fake-mobile-app/messages/fake_message_id"},
-        {"name": "projects/fake-mobile-app/messages/fake_message_id"},
-        {"name": "projects/fake-mobile-app/messages/fake_message_id"},
-    ]
+
+    assert isinstance(response, FcmPushMulticastResponse)
+    assert response.success_count == 3
+    assert response.failure_count == 0
+    assert response.responses[0].message_id == "projects/fake-mobile-app/messages/fake_message_id"
+    assert response.responses[1].message_id == "projects/fake-mobile-app/messages/fake_message_id" 
+    assert response.responses[2].message_id == "projects/fake-mobile-app/messages/fake_message_id"
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
@@ -411,7 +421,12 @@ async def test_push_multicast_unknown_registration_token(fake_async_fcm_client_w
         custom_data={"foo": "bar"},
     )
     response = await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["qwerty:ytrewq"], apns=apns_config)
-    assert response[0]["error"]["code"] == 400
+
+    assert isinstance(response, FcmPushMulticastResponse)
+    assert response.success_count == 0
+    assert response.failure_count == 1
+    assert response.responses[0].exception.code == FcmErrorCode.UNKNOWN.value
+    assert response.responses[0].exception.cause.response.status_code == 400
 
 
 async def test_push_multicast_data_has_not_provided(fake_async_fcm_client_w_creds):

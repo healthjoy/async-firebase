@@ -1,4 +1,5 @@
 import io
+import json
 import typing as t
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -6,6 +7,7 @@ from dataclasses import fields, is_dataclass
 from email.generator import Generator
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
+from email.parser import FeedParser
 
 import httpx
 
@@ -117,10 +119,10 @@ def serialize_mime_message(
     return fp.getvalue()
 
 
-FcmResponse = t.TypeVar('FcmResponse', FcmPushResponse, FcmPushMulticastResponse)
+FcmResponseType = t.TypeVar('FcmResponseType', FcmPushResponse, FcmPushMulticastResponse)
 
 
-class FcmResponseHandler(ABC, t.Generic[FcmResponse]):
+class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
 
     FCM_ERROR_TYPES = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,
@@ -131,8 +133,30 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponse]):
     }
 
     @abstractmethod
-    def handle_error(self, error: httpx.HTTPError) -> FcmResponse:
+    def handle_response(self, response: httpx.Response) -> FcmResponseType:
         pass
+
+    @abstractmethod
+    def handle_error(self, error: httpx.HTTPError) -> FcmResponseType:
+        pass
+
+    def _handle_response(self, response: httpx.Response) -> FcmPushResponse:
+        return FcmPushResponse(fcm_response=response.json())
+
+    def _handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
+        exc = None
+        if isinstance(error, httpx.RequestError):
+            exc = self._handle_request_error(error)
+        elif isinstance(error, httpx.HTTPStatusError):
+            exc = self._handle_fcm_error(error)
+
+        if exc is None:
+            exc = AsyncFirebaseError(
+                code=FcmErrorCode.UNKNOWN.value,
+                message="Unexpected error has happened when hitting the FCM API",
+                cause=error,
+            )
+        return FcmPushResponse(exception=exc)
 
     def _handle_request_error(self, error: httpx.RequestError):
         if isinstance(error, httpx.TimeoutException):
@@ -179,34 +203,73 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponse]):
             ] = f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
         return error_data
 
-    @abstractmethod
-    def handle_response(self, response: httpx.Response) -> FcmResponse:
-        pass
-
 
 class FcmPushResponseHandler(FcmResponseHandler[FcmPushResponse]):
     def handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
-        exc = None
-        if isinstance(error, httpx.RequestError):
-            exc = self._handle_request_error(error)
-        elif isinstance(error, httpx.HTTPStatusError):
-            exc = self._handle_fcm_error(error)
-
-        if exc is None:
-            exc = AsyncFirebaseError(
-                code=FcmErrorCode.UNKNOWN.value,
-                message="Unexpected error has happened when hitting the FCM API",
-                cause=error,
-            )
-        return FcmPushResponse(exception=exc)
+        return self._handle_error(error)
 
     def handle_response(self, response: httpx.Response) -> FcmPushResponse:
-        return FcmPushResponse(fcm_response=response.json())
+        return self._handle_response(response)
 
 
 class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastResponse]):
-    def handle_error(self):
-        pass
+    def handle_error(self, error: httpx.HTTPError):
+        fcm_response = self._handle_error(error)
+        return FcmPushMulticastResponse(responses=[fcm_response])
 
-    def handle_response(self):
-        pass
+    def handle_response(self, response: httpx.Response):
+        fcm_push_responses = []
+        responses = self._deserialize_batch_response(response)
+        for single_resp in responses:
+            if single_resp.status_code >= 300:
+                exc = httpx.HTTPStatusError('FCM Error', response=single_resp, request=response.request)
+                fcm_push_responses.append(self._handle_error(exc))
+            else:
+                fcm_push_responses.append(self._handle_response(single_resp))
+
+        return FcmPushMulticastResponse(responses=fcm_push_responses)
+
+    @staticmethod
+    def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
+        """
+        Convert batch response into list of `httpx.Response` responses for each multipart.
+
+        :param response: string, headers and body as a string.
+        :return: list of `httpx.Response` responses.
+        """
+        # Prepend with a content-type header so FeedParser can handle it.
+        header = f"content-type: {response.headers['content-type']}\r\n\r\n"
+        # PY3's FeedParser only accepts unicode. So we should decode content here, and encode each payload again.
+        content = response.content.decode()
+        for_parser = f"{header}{content}"
+
+        parser = FeedParser()
+        parser.feed(for_parser)
+        mime_response = parser.close()
+
+        if not mime_response.is_multipart():
+            raise ValueError("Response not in multipart/mixed format.")
+
+        responses = []
+        for part in mime_response.get_payload():
+            request_id = part["Content-ID"].split("-", 1)[-1]
+            status_line, payload = part.get_payload().split("\n", 1)
+            _, status_code, _ = status_line.split(" ", 2)
+            status_code = int(status_code)
+
+            # Parse the rest of the response
+            parser = FeedParser()
+            parser.feed(payload)
+            msg = parser.close()
+            msg["status_code"] = status_code
+
+            # Create httpx.Response from the parsed headers.
+            resp = httpx.Response(
+                status_code=status_code,
+                headers=httpx.Headers({"Content-Type": msg.get_content_type(), "X-Request-ID": request_id}),
+                content=msg.get_payload(),
+                json=json.loads(msg.get_payload()),
+            )
+            responses.append(resp)
+
+        return responses

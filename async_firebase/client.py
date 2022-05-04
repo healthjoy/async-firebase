@@ -12,7 +12,6 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
-from email.parser import FeedParser
 from pathlib import PurePath
 from urllib.parse import urlencode, urljoin
 
@@ -35,6 +34,7 @@ from async_firebase.messages import (
     PushNotification,
 )
 from async_firebase.utils import (
+    FcmPushMulticastResponseHandler,
     FcmPushResponseHandler,
     cleanup_firebase_message,
     serialize_mime_message,
@@ -361,50 +361,6 @@ class AsyncFirebaseClient:
         body = serialize_mime_message(msg, max_header_len=0)
         return f"{status_line}{body}"
 
-    @staticmethod
-    def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
-        """
-        Convert batch response into list of `httpx.Response` responses for each multipart.
-
-        :param response: string, headers and body as a string.
-        :return: list of `httpx.Response` responses.
-        """
-        # Prepend with a content-type header so FeedParser can handle it.
-        header = f"content-type: {response.headers['content-type']}\r\n\r\n"
-        # PY3's FeedParser only accepts unicode. So we should decode content here, and encode each payload again.
-        content = response.content.decode()
-        for_parser = f"{header}{content}"
-
-        parser = FeedParser()
-        parser.feed(for_parser)
-        mime_response = parser.close()
-
-        if not mime_response.is_multipart():
-            raise ValueError("Response not in multipart/mixed format.")
-
-        responses = []
-        for part in mime_response.get_payload():
-            request_id = part["Content-ID"].split("-", 1)[-1]
-            status_line, payload = part.get_payload().split("\n", 1)
-            _, status_code, _ = status_line.split(" ", 2)
-
-            # Parse the rest of the response
-            parser = FeedParser()
-            parser.feed(payload)
-            msg = parser.close()
-            msg["status_code"] = status_code
-
-            # Create httpx.Response from the parsed headers.
-            resp = httpx.Response(
-                status_code=status_code,
-                headers=httpx.Headers({"Content-Type": msg.get_content_type(), "X-Request-ID": request_id}),
-                content=msg.get_payload(),
-                json=json.loads(msg.get_payload()),
-            )
-            responses.append(resp)
-
-        return responses
-
     async def _prepare_headers(self):
         """Prepare HTTP headers that will be used to request Firebase Cloud Messaging."""
         logging.debug("Preparing HTTP headers for all the subsequent requests")
@@ -515,7 +471,7 @@ class AsyncFirebaseClient:
         notification: t.Optional[Notification] = None,
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
-    ) -> t.List[t.Dict[str, t.Any]]:
+    ) -> FcmPushMulticastResponse:
         """
         Send Multicast push notification.
 
@@ -577,15 +533,16 @@ class AsyncFirebaseClient:
             uri=self.FCM_BATCH_ENDPOINT,
             content=body,
             headers={"Content-Type": f"multipart/mixed; boundary={multipart_message.get_boundary()}"},
-            response_handler=FcmPushResponseHandler(),  # temporary handler until next commit
+            response_handler=FcmPushMulticastResponseHandler(),
         )
-
-        return [response.json() for response in self._deserialize_batch_response(batch_response)]
+        if not isinstance(batch_response, FcmPushMulticastResponse):
+            raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
+        return batch_response
 
     async def _send_request(
         self,
         uri: str,
-        response_handler: FcmPushResponseHandler,
+        response_handler: t.Union[FcmPushResponseHandler, FcmPushMulticastResponseHandler],
         json_payload: t.Dict[str, t.Any] = None,
         headers: t.Dict[str, str] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes]] = None,
