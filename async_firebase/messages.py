@@ -215,3 +215,45 @@ class PushNotification:
 
     message: Message
     validate_only: t.Optional[bool] = field(default=False)
+
+
+class FcmPushMulticastResponse:
+    """The response received from a batch request to the FCM API.
+
+    The interface of this object is compatible with BatchResponse object of
+    the Google's firebase-admin-python package.
+    """
+
+    def __init__(self, responses):
+        self._responses = responses
+        self._success_count = len([resp for resp in responses if resp.success])
+
+    @property
+    def responses(self):
+        """A list of ``messaging.SendResponse`` objects (possibly empty)."""
+        return self._responses
+
+    @property
+    def success_count(self):
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        return len(self.responses) - self.success_count
+
+
+class FcmPushResponse:
+    """The response received from an individual batched request to the FCM API.
+
+    The interface of this object is compatible with SendResponse object of
+    the Google's firebase-admin-python package.
+    """
+
+    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception=None):
+        self.message_id = fcm_response.get('name') if fcm_response else None
+        self.exception = exception
+
+    @property
+    def success(self) -> bool:
+        """A boolean indicating if the request was successful."""
+        return self.message_id is not None and not self.exception

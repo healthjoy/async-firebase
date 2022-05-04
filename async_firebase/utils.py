@@ -1,10 +1,26 @@
 import io
 import typing as t
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
 from email.generator import Generator
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
+
+import httpx
+
+from async_firebase.errors import (
+    AsyncFirebaseError,
+    DeadlineExceededError,
+    FcmErrorCode,
+    QuotaExceededError,
+    SenderIdMismatchError,
+    ThirdPartyAuthError,
+    UnavailableError,
+    UnknownError,
+    UnregisteredError,
+)
+from async_firebase.messages import FcmPushMulticastResponse, FcmPushResponse
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
@@ -99,3 +115,98 @@ def serialize_mime_message(
     gen = Generator(fp, mangle_from_=mangle_from, maxheaderlen=max_header_len)
     gen.flatten(message, unixfrom=False)
     return fp.getvalue()
+
+
+FcmResponse = t.TypeVar('FcmResponse', FcmPushResponse, FcmPushMulticastResponse)
+
+
+class FcmResponseHandler(ABC, t.Generic[FcmResponse]):
+
+    FCM_ERROR_TYPES = {
+        'APNS_AUTH_ERROR': ThirdPartyAuthError,
+        'QUOTA_EXCEEDED': QuotaExceededError,
+        'SENDER_ID_MISMATCH': SenderIdMismatchError,
+        'THIRD_PARTY_AUTH_ERROR': ThirdPartyAuthError,
+        'UNREGISTERED': UnregisteredError,
+    }
+
+    @abstractmethod
+    def handle_error(self, error: httpx.HTTPError) -> FcmResponse:
+        pass
+
+    def _handle_request_error(self, error: httpx.RequestError):
+        if isinstance(error, httpx.TimeoutException):
+            return DeadlineExceededError(message=f"Timed out while making an API call: {error}", cause=error)
+        elif isinstance(error, httpx.ConnectError):
+            return UnavailableError(message=f"Failed to establish a connection: {error}", cause=error)
+        else:
+            return UnknownError(message="Unknown error while making a remote service call: {error}", cause=error)
+
+    def _handle_fcm_error(self, error: httpx.HTTPStatusError):
+        error_data = self._parse_platform_error(error.response)
+        exc_type = self._get_fcm_error_type(error_data)
+        return exc_type(error_data["message"], cause=error, http_response=error.response) if exc_type else None
+
+    @classmethod
+    def _get_fcm_error_type(cls, error_data: dict):
+        if not error_data:
+            return None
+
+        fcm_code = None
+        for detail in error_data.get('details', []):
+            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
+                fcm_code = detail.get('errorCode')
+                break
+
+        if not fcm_code:
+            return None
+
+        return cls.FCM_ERROR_TYPES.get(fcm_code)
+
+    def _parse_platform_error(self, response: httpx.Response):
+        """Extract the code and mesage from GCP API Error HTTP response."""
+
+        data: dict = {}
+        try:
+            data = response.json()
+        except ValueError:
+            pass
+
+        error_data = data.get("error", {})
+        if not error_data.get("message"):
+            error_data[
+                "message"
+            ] = f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
+        return error_data
+
+    @abstractmethod
+    def handle_response(self, response: httpx.Response) -> FcmResponse:
+        pass
+
+
+class FcmPushResponseHandler(FcmResponseHandler[FcmPushResponse]):
+    def handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
+        exc = None
+        if isinstance(error, httpx.RequestError):
+            exc = self._handle_request_error(error)
+        elif isinstance(error, httpx.HTTPStatusError):
+            exc = self._handle_fcm_error(error)
+
+        if exc is None:
+            exc = AsyncFirebaseError(
+                code=FcmErrorCode.UNKNOWN.value,
+                message="Unexpected error has happened when hitting the FCM API",
+                cause=error,
+            )
+        return FcmPushResponse(exception=exc)
+
+    def handle_response(self, response: httpx.Response) -> FcmPushResponse:
+        return FcmPushResponse(fcm_response=response.json())
+
+
+class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastResponse]):
+    def handle_error(self):
+        pass
+
+    def handle_response(self):
+        pass

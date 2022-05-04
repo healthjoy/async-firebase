@@ -17,7 +17,10 @@ from async_firebase.messages import (
     Aps,
     ApsAlert,
     Message,
+    FcmPushResponse,
 )
+from async_firebase.utils import FcmErrorCode
+
 
 pytestmark = pytest.mark.asyncio
 
@@ -156,8 +159,10 @@ async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock
         custom_data={"foo": "bar"},
     )
     response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config)
-    assert response == {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"}
-
+    assert isinstance(response, FcmPushResponse)
+    assert response.success
+    assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24" 
+ 
 
 async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -175,7 +180,9 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, ht
         custom_data={"foo": "bar"},
     )
     response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config, dry_run=True)
-    assert response == {"name": "projects/fake-mobile-app/messages/fake_message_id"}
+    assert isinstance(response, FcmPushResponse)
+    assert response.success
+    assert response.message_id == "projects/fake-mobile-app/messages/fake_message_id"
 
 
 async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
@@ -201,8 +208,14 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(device_token="qwerty:ytrewq", apns=apns_config)
-    assert response["error"]["code"] == 401
+    fcm_response = await fake_async_fcm_client_w_creds.push(device_token="qwerty:ytrewq", apns=apns_config)
+
+    assert isinstance(fcm_response, FcmPushResponse)
+    assert not fcm_response.success
+    assert fcm_response.exception is not None
+    assert fcm_response.exception.code == FcmErrorCode.UNKNOWN.value
+    assert fcm_response.exception.cause.response.status_code == 401
+
 
 
 async def test_push_data_has_not_provided(fake_async_fcm_client_w_creds):

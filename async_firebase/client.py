@@ -28,11 +28,17 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
+    FcmPushMulticastResponse,
+    FcmPushResponse,
     Message,
     Notification,
     PushNotification,
 )
-from async_firebase.utils import cleanup_firebase_message, serialize_mime_message
+from async_firebase.utils import (
+    FcmPushResponseHandler,
+    cleanup_firebase_message,
+    serialize_mime_message,
+)
 
 DEFAULT_TTL = 604800
 MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
@@ -423,7 +429,7 @@ class AsyncFirebaseClient:
         topic: t.Optional[str] = None,
         webpush: t.Optional[t.Dict[str, str]] = None,
         dry_run: bool = False,
-    ) -> t.Dict[str, t.Any]:
+    ) -> FcmPushResponse:
         """
         Send push notification.
 
@@ -488,12 +494,16 @@ class AsyncFirebaseClient:
         )
 
         push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
+
         response = await self._send_request(
             uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
             json_payload=push_notification,
             headers=await self._prepare_headers(),
+            response_handler=FcmPushResponseHandler(),
         )
-        return response.json()
+        if not isinstance(response, FcmPushResponse):
+            raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
+        return response
 
     async def push_multicast(
         self,
@@ -567,6 +577,7 @@ class AsyncFirebaseClient:
             uri=self.FCM_BATCH_ENDPOINT,
             content=body,
             headers={"Content-Type": f"multipart/mixed; boundary={multipart_message.get_boundary()}"},
+            response_handler=FcmPushResponseHandler(),  # temporary handler until next commit
         )
 
         return [response.json() for response in self._deserialize_batch_response(batch_response)]
@@ -574,10 +585,11 @@ class AsyncFirebaseClient:
     async def _send_request(
         self,
         uri: str,
+        response_handler: FcmPushResponseHandler,
         json_payload: t.Dict[str, t.Any] = None,
         headers: t.Dict[str, str] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes]] = None,
-    ) -> httpx.Response:
+    ) -> t.Union[FcmPushResponse, FcmPushMulticastResponse]:
         """
         Sends an HTTP call using the ``httpx`` library.
 
@@ -595,16 +607,22 @@ class AsyncFirebaseClient:
                 content,
                 headers,
             )
-            response: httpx.Response = await client.post(
-                uri,
-                json=json_payload,
-                headers=headers or await self._prepare_headers(),
-                content=content,
-            )
-            logging.debug(
-                "Response Code: %s, Time spent to make a request: %s",
-                response.status_code,
-                response.elapsed,
-            )
+            try:
+                raw_fcm_response: httpx.Response = await client.post(
+                    uri,
+                    json=json_payload,
+                    headers=headers or await self._prepare_headers(),
+                    content=content,
+                )
+                raw_fcm_response.raise_for_status()
+            except httpx.HTTPError as exc:
+                response = response_handler.handle_error(exc)
+            else:
+                logging.debug(
+                    "Response Code: %s, Time spent to make a request: %s",
+                    raw_fcm_response.status_code,
+                    raw_fcm_response.elapsed,
+                )
+                response = response_handler.handle_response(raw_fcm_response)
 
         return response
