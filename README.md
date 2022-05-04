@@ -54,7 +54,7 @@ async def main():
     )
     response = await client.push(device_token=device_token, android=android_config)
 
-    print(response)
+    print(response.sucess, response.message_id)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -90,7 +90,7 @@ async def main():
     )
     response = await client.push(device_token=device_token, apns=apns_config)
 
-    print(response)
+    print(response.success)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -140,7 +140,7 @@ async def main():
     client = AsyncFirebaseClient()
     client.creds_from_service_account_info({...})
     response = await client.push(device_token=device_token, apns=apns_config)
-    print(response)
+    print(response.success)
 
 
 if __name__ == "__main__":
