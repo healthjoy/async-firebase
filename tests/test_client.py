@@ -325,12 +325,6 @@ async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_t
     assert response.responses[1].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"
     assert response.responses[2].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"
 
-    # assert response == [
-    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"},
-    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"},
-    #     {"name": "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"},
-    # ]
-
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
