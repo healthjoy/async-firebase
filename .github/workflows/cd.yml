@@ -34,6 +34,7 @@ jobs:
         run: |
           pip install pip==21.3.1 setuptools==59.6.0
           curl -sSL https://install.python-poetry.org | python3 -
+          source $HOME/.poetry/env
           poetry install --no-interaction
 
       - name: Log currently installed packages and versions
