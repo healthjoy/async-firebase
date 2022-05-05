@@ -85,6 +85,7 @@ jobs:
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
+        id: cache-virtualenv
 
       - name: Static type checker
         run: mypy --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
