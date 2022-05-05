@@ -230,7 +230,7 @@ class FcmPushMulticastResponse:
 
     @property
     def responses(self):
-        """A list of ``messaging.SendResponse`` objects (possibly empty)."""
+        """A list of ``FcmPushResponse`` objects (possibly empty)."""
         return self._responses
 
     @property
