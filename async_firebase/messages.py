@@ -250,7 +250,7 @@ class FcmPushResponse:
     """
 
     def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception=None):
-        self.message_id = fcm_response.get('name') if fcm_response else None
+        self.message_id = fcm_response.get("name") if fcm_response else None
         self.exception = exception
 
     @property

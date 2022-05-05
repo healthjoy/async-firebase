@@ -119,17 +119,17 @@ def serialize_mime_message(
     return fp.getvalue()
 
 
-FcmResponseType = t.TypeVar('FcmResponseType', FcmPushResponse, FcmPushMulticastResponse)
+FcmResponseType = t.TypeVar("FcmResponseType", FcmPushResponse, FcmPushMulticastResponse)
 
 
 class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
 
     FCM_ERROR_TYPES = {
-        'APNS_AUTH_ERROR': ThirdPartyAuthError,
-        'QUOTA_EXCEEDED': QuotaExceededError,
-        'SENDER_ID_MISMATCH': SenderIdMismatchError,
-        'THIRD_PARTY_AUTH_ERROR': ThirdPartyAuthError,
-        'UNREGISTERED': UnregisteredError,
+        "APNS_AUTH_ERROR": ThirdPartyAuthError,
+        "QUOTA_EXCEEDED": QuotaExceededError,
+        "SENDER_ID_MISMATCH": SenderIdMismatchError,
+        "THIRD_PARTY_AUTH_ERROR": ThirdPartyAuthError,
+        "UNREGISTERED": UnregisteredError,
     }
 
     @abstractmethod
@@ -177,9 +177,9 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
             return None
 
         fcm_code = None
-        for detail in error_data.get('details', []):
-            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                fcm_code = detail.get('errorCode')
+        for detail in error_data.get("details", []):
+            if detail.get("@type") == "type.googleapis.com/google.firebase.fcm.v1.FcmError":
+                fcm_code = detail.get("errorCode")
                 break
 
         if not fcm_code:
@@ -222,7 +222,7 @@ class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastRespons
         responses = self._deserialize_batch_response(response)
         for single_resp in responses:
             if single_resp.status_code >= 300:
-                exc = httpx.HTTPStatusError('FCM Error', response=single_resp, request=response.request)
+                exc = httpx.HTTPStatusError("FCM Error", response=single_resp, request=response.request)
                 fcm_push_responses.append(self._handle_error(exc))
             else:
                 fcm_push_responses.append(self._handle_response(single_resp))
