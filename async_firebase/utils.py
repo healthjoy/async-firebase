@@ -140,7 +140,8 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
     def handle_error(self, error: httpx.HTTPError) -> FcmResponseType:
         pass
 
-    def _handle_response(self, response: httpx.Response) -> FcmPushResponse:
+    @staticmethod
+    def _handle_response(response: httpx.Response) -> FcmPushResponse:
         return FcmPushResponse(fcm_response=response.json())
 
     def _handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
@@ -158,7 +159,8 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
             )
         return FcmPushResponse(exception=exc)
 
-    def _handle_request_error(self, error: httpx.RequestError):
+    @staticmethod
+    def _handle_request_error(error: httpx.RequestError):
         if isinstance(error, httpx.TimeoutException):
             return DeadlineExceededError(message=f"Timed out while making an API call: {error}", cause=error)
         elif isinstance(error, httpx.ConnectError):
@@ -187,9 +189,9 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
 
         return cls.FCM_ERROR_TYPES.get(fcm_code)
 
-    def _parse_platform_error(self, response: httpx.Response):
+    @staticmethod
+    def _parse_platform_error(response: httpx.Response):
         """Extract the code and mesage from GCP API Error HTTP response."""
-
         data: dict = {}
         try:
             data = response.json()
@@ -231,8 +233,7 @@ class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastRespons
 
     @staticmethod
     def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
-        """
-        Convert batch response into list of `httpx.Response` responses for each multipart.
+        """Convert batch response into list of `httpx.Response` responses for each multipart.
 
         :param response: string, headers and body as a string.
         :return: list of `httpx.Response` responses.

@@ -205,8 +205,7 @@ class Message:
 
 @dataclass
 class PushNotification:
-    """
-    The payload that is sent to Firebase Cloud Messaging.
+    """The payload that is sent to Firebase Cloud Messaging.
 
     Attributes:
     message: an instance of ``messages.Message`` or ``messages.MulticastMessage``.
@@ -217,6 +216,28 @@ class PushNotification:
     validate_only: t.Optional[bool] = field(default=False)
 
 
+class FcmPushResponse:
+    """The response received from an individual batched request to the FCM API.
+
+    The interface of this object is compatible with SendResponse object of
+    the Google's firebase-admin-python package.
+    """
+
+    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception=None):
+        """Inits FcmPushResponse object.
+
+        :param fcm_response: a dictionary with the data that FCM returns as a payload
+        :param exception: an exception that may happen when communicating with FCM
+        """
+        self.message_id = fcm_response.get("name") if fcm_response else None
+        self.exception = exception
+
+    @property
+    def success(self) -> bool:
+        """A boolean indicating if the request was successful."""
+        return self.message_id is not None and not self.exception
+
+
 class FcmPushMulticastResponse:
     """The response received from a batch request to the FCM API.
 
@@ -224,7 +245,11 @@ class FcmPushMulticastResponse:
     the Google's firebase-admin-python package.
     """
 
-    def __init__(self, responses):
+    def __init__(self, responses: t.List[FcmPushResponse]):
+        """Inits FcmPushMulticastResponse.
+
+        :param responses: a list of FcmPushResponse objects
+        """
         self._responses = responses
         self._success_count = len([resp for resp in responses if resp.success])
 
@@ -240,20 +265,3 @@ class FcmPushMulticastResponse:
     @property
     def failure_count(self):
         return len(self.responses) - self.success_count
-
-
-class FcmPushResponse:
-    """The response received from an individual batched request to the FCM API.
-
-    The interface of this object is compatible with SendResponse object of
-    the Google's firebase-admin-python package.
-    """
-
-    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception=None):
-        self.message_id = fcm_response.get("name") if fcm_response else None
-        self.exception = exception
-
-    @property
-    def success(self) -> bool:
-        """A boolean indicating if the request was successful."""
-        return self.message_id is not None and not self.exception
