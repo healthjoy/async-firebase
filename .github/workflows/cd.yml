@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-python@v2
 
       - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1
+        uses: syphar/restore-virtualenv@v1.2
         id: cache-virtualenv
 
       - name: pip cache

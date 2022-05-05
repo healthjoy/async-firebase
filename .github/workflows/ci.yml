@@ -65,7 +65,7 @@ jobs:
         uses: actions/setup-python@v2
 
       - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1
+        uses: syphar/restore-virtualenv@v1.2
 
       - name: Check code style
         run: |
@@ -83,7 +83,7 @@ jobs:
         uses: actions/setup-python@v2
 
       - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1
+        uses: syphar/restore-virtualenv@v1.2
 
       - name: Static type checker
         run: mypy --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
@@ -104,7 +104,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1
+        uses: syphar/restore-virtualenv@v1.2
 
       - name: Run pytest
         run: pytest tests/
