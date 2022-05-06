@@ -38,7 +38,6 @@ jobs:
         id: cache-virtualenv
         with:
           custom_cache_key_element: v1.2
-          custom_virtualenv_dir: $HOME/.venv
 
       - name: pip cache
         uses: syphar/restore-pip-download-cache@v1
@@ -72,7 +71,6 @@ jobs:
         id: cache-virtualenv
         with:
           custom_cache_key_element: v1.2
-          custom_virtualenv_dir: $HOME/.venv
 
       - name: Check code style
         run: black --check --line-length=120 --diff async_firebase
