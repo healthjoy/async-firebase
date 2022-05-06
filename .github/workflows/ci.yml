@@ -45,7 +45,6 @@ jobs:
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
           POETRY_VERSION: 1.1.12
-          POETRY_NO_INTERACTION: 1
         run: |
           pip install pip==21.3.1 setuptools==59.6.0
           curl -sSL https://install.python-poetry.org | python3 -
@@ -69,9 +68,7 @@ jobs:
         id: cache-virtualenv
 
       - name: Check code style
-        run: |
-          pip install typed-ast --upgrade
-          black --check --line-length=120 --diff async_firebase
+        run: black --check --line-length=120 --diff async_firebase
 
   linters-mypy:
     needs: create-virtualenv
@@ -81,7 +78,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
@@ -101,12 +98,13 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
+        id: cache-virtualenv
 
       - name: Run pytest
         run: pytest tests/
