@@ -223,7 +223,7 @@ class FcmPushResponse:
     the Google's firebase-admin-python package.
     """
 
-    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception=None):
+    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception: t.Optional[Exception] = None):
         """Inits FcmPushResponse object.
 
         :param fcm_response: a dictionary with the data that FCM returns as a payload
