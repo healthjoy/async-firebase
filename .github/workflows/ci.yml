@@ -48,10 +48,10 @@ jobs:
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
           POETRY_VERSION: 1.1.12
+          POETRY_VIRTUALENVS_PATH: $HOME/.venv
         run: |
           pip install pip==21.3.1 setuptools==59.6.0
           curl -sSL https://install.python-poetry.org | python3 -
-          source $HOME/.venv
           poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
