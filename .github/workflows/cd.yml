@@ -16,11 +16,13 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
         id: cache-virtualenv
+        with:
+          custom_cache_key_element: v1.2
 
       - name: pip cache
         uses: syphar/restore-pip-download-cache@v1
@@ -29,11 +31,11 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.1.12
-          POETRY_NO_INTERACTION: 1
+          POETRY_VERSION: 1.1.13
         run: |
           pip install pip==21.3.1 setuptools==59.6.0
-          curl -sSL https://install.python-poetry.org | python3 -
+          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+          source $HOME/.poetry/env
           poetry install --no-interaction
 
       - name: Log currently installed packages and versions
@@ -47,16 +49,16 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
 
       - name: Release to PyPI
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          POETRY_VERSION: 1.1.12
-          POETRY_NO_INTERACTION: 1
+          POETRY_VERSION: 1.1.13
         run: |
-          pip install pip==21.1.1 setuptools==50.3.2
-          curl -sSL https://install.python-poetry.org | python3 -
+          pip install pip==21.3.1 setuptools==59.6.0
+          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+          source $HOME/.poetry/env
           poetry build
           poetry config pypi-token.pypi $PYPI_TOKEN
           poetry publish
