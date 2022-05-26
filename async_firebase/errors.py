@@ -55,7 +55,7 @@ class AsyncFirebaseError(BaseAsyncFirebaseError):
         self.code = code
         self.cause = cause
         self.http_response = http_response
-        super().__init__(self, message)
+        super().__init__(message)
 
 
 class DeadlineExceededError(AsyncFirebaseError):
@@ -68,7 +68,7 @@ class DeadlineExceededError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.DEADLINE_EXCEEDED.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.DEADLINE_EXCEEDED.value, message, cause=cause, http_response=http_response)
 
 
 class UnavailableError(AsyncFirebaseError):
@@ -76,7 +76,7 @@ class UnavailableError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.UNAVAILABLE.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.UNAVAILABLE.value, message, cause=cause, http_response=http_response)
 
 
 class UnknownError(AsyncFirebaseError):
@@ -84,7 +84,7 @@ class UnknownError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.UNKNOWN.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.UNKNOWN.value, message, cause=cause, http_response=http_response)
 
 
 class UnauthenticatedError(AsyncFirebaseError):
@@ -92,7 +92,7 @@ class UnauthenticatedError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.UNAUTHENTICATED.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.UNAUTHENTICATED.value, message, cause=cause, http_response=http_response)
 
 
 class ThirdPartyAuthError(UnauthenticatedError):
@@ -104,7 +104,7 @@ class ResourceExhaustedError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.RESOURCE_EXHAUSTED.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.RESOURCE_EXHAUSTED.value, message, cause=cause, http_response=http_response)
 
 
 class QuotaExceededError(ResourceExhaustedError):
@@ -120,7 +120,7 @@ class PermissionDeniedError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.PERMISSION_DENIED.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.PERMISSION_DENIED.value, message, cause=cause, http_response=http_response)
 
 
 class SenderIdMismatchError(PermissionDeniedError):
@@ -135,7 +135,7 @@ class NotFoundError(AsyncFirebaseError):
 
     def __init__(self, message, cause=None, http_response=None):
         """Please see params information in the base exception docstring."""
-        super().__init__(self, FcmErrorCode.NOT_FOUND.value, message, cause=cause, http_response=http_response)
+        super().__init__(FcmErrorCode.NOT_FOUND.value, message, cause=cause, http_response=http_response)
 
 
 class UnregisteredError(NotFoundError):
