@@ -1,9 +1,14 @@
 # Changelog
+
+## 2.0.1
+  * Fix ``TypeError`` on create ``AsyncFirebaseError`` subclass instance
+
 ## 2.0.0
   * `push` method now returns a `FcmPushResponse` object, that has a fully compatible interface with SendResponse object of the Google's firebase-admin-python package.
   * `push_multicast` method now returns a `FcmPushMulticastResponse` object, that has a fully compatible interface with BatchResponse object of the Google's firebase-admin-python package.
   * The aforementioned methods may still rise exceptions when assembling the message for the request.
   * A bunch of exceptions has been added.
+
 ## 1.9.1
 
   * [FIX] Invalid batch requests fixed in``push_multicast`` method.
