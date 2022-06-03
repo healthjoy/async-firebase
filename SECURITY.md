@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-As of May 19, 2022:
+As of June 3, 2022:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.x.x   | :dart: Breaking changes in interface |
-| 1.9.x   | :building_construction: Actively developing |
+| 3.x.x   | :dart: Planned with breaking changes (drop support of Python 3.6) |
+| 2.x.x   | :building_construction: Actively developing |
+| 1.9.x   | :white_check_mark: Current Stable, security updates only |
 | < 1.0   | :x: Older versions are not supported |
 
 ## Reporting a Vulnerability
