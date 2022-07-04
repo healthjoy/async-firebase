@@ -5,6 +5,8 @@
 import typing as t
 from dataclasses import dataclass, field
 
+from async_firebase.errors import AsyncFirebaseError
+
 
 @dataclass
 class AndroidNotification:
@@ -223,7 +225,9 @@ class FcmPushResponse:
     the Google's firebase-admin-python package.
     """
 
-    def __init__(self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception: t.Optional[Exception] = None):
+    def __init__(
+        self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception: t.Optional[AsyncFirebaseError] = None
+    ):
         """Inits FcmPushResponse object.
 
         :param fcm_response: a dictionary with the data that FCM returns as a payload

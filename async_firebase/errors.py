@@ -39,7 +39,7 @@ class AsyncFirebaseError(BaseAsyncFirebaseError):
         self,
         code: str,
         message: str,
-        cause: t.Optional[Exception] = None,
+        cause: t.Union[httpx.HTTPStatusError, httpx.RequestError, None] = None,
         http_response: t.Optional[httpx.Response] = None,
     ):
         """Init the AsyncFirebase error.
@@ -130,7 +130,7 @@ class SenderIdMismatchError(PermissionDeniedError):
 class NotFoundError(AsyncFirebaseError):
     """A specified resource is not found, or the request is rejected by undisclosed reasons.
 
-    An example of the possible cause of theis error is whitelisting.
+    An example of the possible cause of this error is whitelisting.
     """
 
     def __init__(self, message, cause=None, http_response=None):

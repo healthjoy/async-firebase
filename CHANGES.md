@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.0.2
+  * Adjust type annotations for some errors:
+
+  **async_firebase/errors.py**
+```python
+
+class AsyncFirebaseError(BaseAsyncFirebaseError):
+    """A prototype for all AF Errors.
+
+    This error and its subtypes and the reason to rise them are consistent with Google's errors,
+    that may be found in `firebase-admin-python` in `firebase_admin.exceptions module`.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        <<< cause: t.Optional[Exception] = None,
+        >>> cause: t.Union[httpx.HTTPStatusError, httpx.RequestError, None] = None,
+        http_response: t.Optional[httpx.Response] = None,
+    ):
+```
+
+    **async_firebase/messages.py**
+```python
+class FcmPushResponse:
+    """The response received from an individual batched request to the FCM API.
+
+    The interface of this object is compatible with SendResponse object of
+    the Google's firebase-admin-python package.
+    """
+
+    def __init__(
+        self,
+        fcm_response: t.Optional[t.Dict[str, str]] = None,
+        <<< exception: t.Optional[Exception] = None
+        >>> exception: t.Optional[AsyncFirebaseError] = None
+    ):
+```
+
 ## 2.0.1
   * Fix ``TypeError`` on create ``AsyncFirebaseError`` subclass instance
 

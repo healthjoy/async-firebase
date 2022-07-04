@@ -54,7 +54,7 @@ async def main():
     )
     response = await client.push(device_token=device_token, android=android_config)
 
-    print(response.sucess, response.message_id)
+    print(response.success, response.message_id)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 This prints:
 
 ```shell script
-{"name": "projects/mobile-app/messages/0:2367799010922733%7606eb557606ebff"}
+"projects/mobile-app/messages/0:2367799010922733%7606eb557606ebff"
 ```
 
 To manual construct message:
