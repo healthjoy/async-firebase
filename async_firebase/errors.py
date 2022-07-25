@@ -143,3 +143,66 @@ class UnregisteredError(NotFoundError):
 
     This usually means that the token used is no longer valid and a new one must be used.
     """
+
+
+class InvalidArgumentError(AsyncFirebaseError):
+    """Client specified an invalid argument."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.INVALID_ARGUMENT.value, message, cause=cause, http_response=http_response)
+
+
+class FailedPreconditionError(AsyncFirebaseError):
+    """Request can not be executed in the current system state, such as deleting a non-empty directory."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.FAILED_PRECONDITION.value, message, cause=cause, http_response=http_response)
+
+
+class OutOfRangeError(AsyncFirebaseError):
+    """Client specified an invalid range."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.OUT_OF_RANGE.value, message, cause=cause, http_response=http_response)
+
+
+class AbortedError(AsyncFirebaseError):
+    """Concurrency conflict, such as read-modify-write conflict."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.ABORTED.value, message, cause=cause, http_response=http_response)
+
+
+class AlreadyExistsError(AsyncFirebaseError):
+    """The resource that a client tried to create already exists."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.ALREADY_EXISTS.value, message, cause=cause, http_response=http_response)
+
+
+class ConflictError(AsyncFirebaseError):
+    """Concurrency conflict, such as read-modify-write conflict."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.CONFLICT.value, message, cause=cause, http_response=http_response)
+
+
+class CancelledError(AsyncFirebaseError):
+    """Request cancelled by the client."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.CANCELLED.value, message, cause=cause, http_response=http_response)
+
+
+class DataLossError(AsyncFirebaseError):
+    """Unrecoverable data loss or data corruption."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.DATA_LOSS.value, message, cause=cause, http_response=http_response)
+
+
+class InternalError(AsyncFirebaseError):
+    """Internal server error."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        super().__init__(FcmErrorCode.INTERNAL.value, message, cause=cause, http_response=http_response)
