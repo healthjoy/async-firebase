@@ -193,14 +193,14 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
             return DeadlineExceededError(message=f"Timed out while making an API call: {error}", cause=error)
         elif isinstance(error, httpx.ConnectError):
             return UnavailableError(message=f"Failed to establish a connection: {error}", cause=error)
-        elif not hasattr(error, 'response'):
+        elif not hasattr(error, "response"):
             return UnknownError(message="Unknown error while making a remote service call: {error}", cause=error)
 
         return self._get_error_by_status_code(t.cast(httpx.HTTPStatusError, error))
 
     def _get_error_by_status_code(self, error: httpx.HTTPStatusError):
         error_data = self._parse_platform_error(error.response)
-        code = error_data.get('status', self._http_status_to_error_code(error.response.status_code))
+        code = error_data.get("status", self._http_status_to_error_code(error.response.status_code))
         err_type = self._error_code_to_exception_type(code)
         return err_type(message=error_data["message"], cause=error, http_response=error.response)
 
