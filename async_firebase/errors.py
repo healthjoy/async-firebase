@@ -39,7 +39,7 @@ class AsyncFirebaseError(BaseAsyncFirebaseError):
         self,
         code: str,
         message: str,
-        cause: t.Union[httpx.HTTPStatusError, httpx.RequestError, None] = None,
+        cause: t.Optional[httpx.HTTPError] = None,
         http_response: t.Optional[httpx.Response] = None,
     ):
         """Init the AsyncFirebase error.

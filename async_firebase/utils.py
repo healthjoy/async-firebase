@@ -125,7 +125,7 @@ FcmResponseType = t.TypeVar("FcmResponseType", FcmPushResponse, FcmPushMulticast
 
 class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
 
-    ERROR_CODE_TO_EXCEPTION_TYPE = {
+    ERROR_CODE_TO_EXCEPTION_TYPE: t.Dict[str, t.Type[AsyncFirebaseError]] = {
         FcmErrorCode.INVALID_ARGUMENT.value: errors.InvalidArgumentError,
         FcmErrorCode.FAILED_PRECONDITION.value: errors.FailedPreconditionError,
         FcmErrorCode.OUT_OF_RANGE.value: errors.OutOfRangeError,
@@ -202,7 +202,7 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
         error_data = self._parse_platform_error(error.response)
         code = error_data.get("status", self._http_status_to_error_code(error.response.status_code))
         err_type = self._error_code_to_exception_type(code)
-        return err_type(message=error_data["message"], cause=error, http_response=error.response)
+        return err_type(message=error_data["message"], cause=error, http_response=error.response)  # type: ignore
 
     def _handle_fcm_error(self, error: httpx.HTTPStatusError):
         error_data = self._parse_platform_error(error.response)
