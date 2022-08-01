@@ -214,7 +214,7 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
     assert isinstance(fcm_response, FcmPushResponse)
     assert not fcm_response.success
     assert fcm_response.exception is not None
-    assert fcm_response.exception.code == FcmErrorCode.UNKNOWN.value
+    assert fcm_response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
     assert fcm_response.exception.cause.response.status_code == 401
 
 
@@ -417,7 +417,46 @@ async def test_push_multicast_unknown_registration_token(fake_async_fcm_client_w
     assert isinstance(response, FcmPushMulticastResponse)
     assert response.success_count == 0
     assert response.failure_count == 1
-    assert response.responses[0].exception.code == FcmErrorCode.UNKNOWN.value
+    assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
+    assert response.responses[0].exception.cause.response.status_code == 400
+
+
+async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    response_data = (
+        '\r\n--batch_H3WKviwlw1OiFBuquMNPomHJtcBwS2Oi\r\n'
+        'Content-Type: application/http\r\n'
+        'Content-ID: response-37b4e119-2d98-4544-852d-082e429c18c2\r\n\r\n'
+        'HTTP/1.1 400 Bad Request\r\n'
+        'Vary: Origin\r\n'
+        'Vary: X-Origin\r\n'
+        'Vary: Referer\r\n'
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n'
+        '{\n "error": {\n "code": 400,\n "message": "Invalid value at \'message.data[1].value\' (TYPE_STRING), 10",\n'
+        ' "status": "INVALID_ARGUMENT",\n "details": [\n {\n "@type": "type.googleapis.com/google.rpc.BadRequest",\n'
+        ' "fieldViolations": [\n {\n "field": "message.data[1].value",\n'
+        ' "description": "Invalid value at \'message.data[1].value\' (TYPE_STRING), 10"\n }\n ]\n }\n ]\n }\n}\n\r\n'
+        '--batch_H3WKviwlw1OiFBuquMNPomHJtcBwS2Oi--\r\n'
+    )
+    httpx_mock.add_response(
+        status_code=400,
+        data=response_data.encode(),
+        headers={"content-type": "multipart/mixed; boundary=batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB"},
+    )
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    response = await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["qwerty:ytrewq"], apns=apns_config)
+
+    assert isinstance(response, FcmPushMulticastResponse)
+    assert response.success_count == 0
+    assert response.failure_count == 1
+    assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
     assert response.responses[0].exception.cause.response.status_code == 400
 
 

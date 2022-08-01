@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.3
+A few new error types have been added to support the errors that FCM API may return:
+- InvalidArgumentError
+- FailedPreconditionError
+- OutOfRangeError
+- UnauthenticatedError
+- PermissionDeniedError
+- NotFoundError
+- AbortedError
+- AlreadyExistsError
+- ConflictError
+- ResourceExhaustedError
+- CancelledError
+- DataLossError
+- UnknownError
+- InternalError
+- UnavailableError
+- DeadlineExceededError
+
+
 ## 2.0.2
   * Adjust type annotations for some errors:
 
