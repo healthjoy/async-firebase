@@ -100,6 +100,10 @@ def test_remove_null_values(data, exp_result):
             {"title": "push-title", "body": "push-body"},
         ),
         (
+            Notification(title="push-title", body="push-body", image="https://cdn.domain.com/public.image.png"),
+            {"title": "push-title", "body": "push-body", "image": "https://cdn.domain.com/public.image.png"},
+        ),
+        (
             Message(
                 token="qwerty",
                 notification=Notification(title="push-title", body="push-body"),

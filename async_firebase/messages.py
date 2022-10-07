@@ -170,10 +170,12 @@ class Notification:
     Attributes:
     title: title of the notification (optional).
     body: body of the notification (optional).
+    image: image url of the notification (optional)
     """
 
     title: t.Optional[str] = None
     body: t.Optional[str] = None
+    image: t.Optional[str] = None
 
 
 @dataclass
