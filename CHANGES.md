@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.0
+  * ``messages.Notification`` object now supports attribute ``image`` that allows to set image url of the notification
+
+
 ## 2.0.3
 A few new error types have been added to support the errors that FCM API may return:
 - InvalidArgumentError
