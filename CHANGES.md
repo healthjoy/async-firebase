@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.0
+async_firebase now works with python 3.11
+* Removes asynctest as it is no longer maintained [ref](https://github.com/Martiusweb/asynctest/issues/158#issuecomment-785872568)
+
 ## 2.1.0
   * ``messages.Notification`` object now supports attribute ``image`` that allows to set image url of the notification
 
