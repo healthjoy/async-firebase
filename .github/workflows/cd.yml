@@ -37,7 +37,8 @@ jobs:
         run: |
           pip install pip==22.3 setuptools==65.5.0
           curl -sSL https://install.python-poetry.org | python3 -
-          source $HOME/.poetry/env
+          export VENV="$(poetry env info -p)"
+          source ${VENV}/bin/activate
           poetry install --no-interaction
 
       - name: Log currently installed packages and versions
@@ -56,11 +57,12 @@ jobs:
       - name: Release to PyPI
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          POETRY_VERSION: 1.1.13
+          POETRY_VERSION: 1.2.2
         run: |
           pip install pip==22.3 setuptools==65.5.0
-          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-          source $HOME/.poetry/env
+          curl -sSL https://install.python-poetry.org | python3 -
+          export VENV="$(poetry env info -p)"
+          source ${VENV}/bin/activate
           poetry build
           poetry config pypi-token.pypi $PYPI_TOKEN
           poetry publish
