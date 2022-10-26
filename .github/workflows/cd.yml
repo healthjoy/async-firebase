@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -33,10 +33,10 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.1.13
+          POETRY_VERSION: 1.2.2
         run: |
-          pip install pip==21.3.1 setuptools==59.6.0
-          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+          pip install pip==22.3 setuptools==65.5.0
+          curl -sSL https://install.python-poetry.org | python3 -
           source $HOME/.poetry/env
           poetry install --no-interaction
 
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -58,7 +58,7 @@ jobs:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           POETRY_VERSION: 1.1.13
         run: |
-          pip install pip==21.3.1 setuptools==59.6.0
+          pip install pip==22.3 setuptools==65.5.0
           curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
           source $HOME/.poetry/env
           poetry build
