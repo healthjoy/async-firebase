@@ -4,7 +4,6 @@ from datetime import datetime
 
 import pkg_resources
 import pytest
-from asynctest import patch
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
@@ -133,15 +132,15 @@ def test_build_apns_config(fake_async_fcm_client_w_creds, freezer):
 async def test__prepare_headers(fake_async_fcm_client_w_creds):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     frozen_uuid = uuid.UUID(hex="6eadf1d38633427cb83dbb9be137f48c")
-    with patch.object(uuid, "uuid4", side_effect=[frozen_uuid]):
-        headers = await fake_async_fcm_client_w_creds._prepare_headers()
-        assert headers == {
-            "Authorization": "Bearer fake-jwt-token",
-            "Content-Type": "application/json; UTF-8",
-            "X-Request-Id": str(frozen_uuid),
-            "X-GOOG-API-FORMAT-VERSION": "2",
-            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
-        }
+    fake_async_fcm_client_w_creds._get_request_id = lambda: str(frozen_uuid)
+    headers = await fake_async_fcm_client_w_creds._prepare_headers()
+    assert headers == {
+        "Authorization": "Bearer fake-jwt-token",
+        "Content-Type": "application/json; UTF-8",
+        "X-Request-Id": str(frozen_uuid),
+        "X-GOOG-API-FORMAT-VERSION": "2",
+        "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
+    }
 
 
 async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
