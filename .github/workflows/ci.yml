@@ -14,8 +14,6 @@ on:
   pull_request:
     branches:
       - "master"
-    paths:
-      - "**.py"
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -54,7 +52,8 @@ jobs:
         run: |
           pip install pip==22.3 setuptools==65.5.0
           curl -sSL https://install.python-poetry.org | python3 -
-          source $HOME/.poetry/env
+          export VENV="$(poetry env info -p)"
+          source ${VENV}/bin/activate
           poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
