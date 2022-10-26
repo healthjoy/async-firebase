@@ -14,8 +14,6 @@ on:
   pull_request:
     branches:
       - "master"
-    paths:
-      - "**.py"
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -30,7 +28,7 @@ jobs:
         python-version: [ '3.6', '3.7', '3.8', '3.9', '3.10', '3.11' ]
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -50,11 +48,12 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.1.13
+          POETRY_VERSION: 1.2.2
         run: |
-          pip install pip==21.3.1 setuptools==59.6.0
-          curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-          source $HOME/.poetry/env
+          pip install pip==22.3 setuptools==65.5.0
+          curl -sSL https://install.python-poetry.org | python3 -
+          export VENV="$(poetry env info -p)"
+          source ${VENV}/bin/activate
           poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
@@ -65,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -84,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -106,7 +105,7 @@ jobs:
         python-version: [ '3.6', '3.7', '3.8', '3.9', '3.10', '3.11' ]
     steps:
       - name: source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v3
