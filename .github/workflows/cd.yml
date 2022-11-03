@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
 
       - name: Release to PyPI
         env:
