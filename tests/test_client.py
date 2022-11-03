@@ -57,7 +57,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
         ttl=7200,
         collapse_key="something",
         restricted_package_name="some-package",
-        data={"key_1": "value_1", "key_2": 100},
+        data={"key_1": "value_1", "key_2": 100, "foo": None},
         color="red",
         sound="beep",
         tag="test",
@@ -69,7 +69,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
             "priority": "high",
             "collapse_key": "something",
             "restricted_package_name": "some-package",
-            "data": {"key_1": "value_1", "key_2": "100"},
+            "data": {"key_1": "value_1", "key_2": "100", "foo": "null"},
             "ttl": "7200s",
             "notification": AndroidNotification(
                 **{
