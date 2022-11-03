@@ -37,8 +37,7 @@ jobs:
         run: |
           pip install pip==22.3 setuptools==65.5.0
           curl -sSL https://install.python-poetry.org | python3 -
-          export VENV="$(poetry env info -p)"
-          source ${VENV}/bin/activate
+          source $HOME/.poetry/env
           poetry install --no-interaction
 
       - name: Log currently installed packages and versions
