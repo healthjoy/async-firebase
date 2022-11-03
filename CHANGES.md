@@ -1,8 +1,12 @@
 # Changelog
 
+## 2.3.0
+Method ``client.build_android_config`` has been adjusted, so when ``data`` parameter is passed but the value is not set (equal to `None`),
+turn in into ``"null"``
+
 ## 2.2.0
 async_firebase now works with python 3.11
-* Removes asynctest as it is no longer maintained [ref](https://github.com/Martiusweb/asynctest/issues/158#issuecomment-785872568)
+* Removes ``asynctest`` as it is no longer maintained [ref](https://github.com/Martiusweb/asynctest/issues/158#issuecomment-785872568)
 
 ## 2.1.0
   * ``messages.Notification`` object now supports attribute ``image`` that allows to set image url of the notification

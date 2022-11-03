@@ -215,7 +215,7 @@ class AsyncFirebaseClient:
             priority=priority,
             ttl=f"{int(ttl.total_seconds()) if isinstance(ttl, timedelta) else ttl}s",
             restricted_package_name=restricted_package_name,
-            data={str(key): str(value) for key, value in data.items()} if data else {},
+            data={str(key): "null" if value is None else str(value) for key, value in data.items()} if data else {},
             notification=AndroidNotification(
                 title=title,
                 body=body,
