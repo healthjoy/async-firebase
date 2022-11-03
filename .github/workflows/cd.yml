@@ -61,7 +61,7 @@ jobs:
         run: |
           pip install pip==22.3 setuptools==65.5.0
           curl -sSL https://install.python-poetry.org | python3 -
-          source $HOME/.poetry/env
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           poetry build
           poetry config pypi-token.pypi $PYPI_TOKEN
           poetry publish
