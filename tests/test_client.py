@@ -301,7 +301,7 @@ async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_t
 
     httpx_mock.add_response(
         status_code=200,
-        data=response_data.encode(),
+        content=response_data.encode(),
         headers={"content-type": "multipart/mixed; boundary=batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4"},
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
@@ -344,7 +344,7 @@ async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_
     )
     httpx_mock.add_response(
         status_code=200,
-        data=response_data.encode(),
+        content=response_data.encode(),
         headers={"content-type": "multipart/mixed; boundary=batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4"},
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
@@ -400,7 +400,7 @@ async def test_push_multicast_unknown_registration_token(fake_async_fcm_client_w
     )
     httpx_mock.add_response(
         status_code=400,
-        data=response_data.encode(),
+        content=response_data.encode(),
         headers={"content-type": "multipart/mixed; boundary=batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB"},
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
@@ -439,7 +439,7 @@ async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_cred
     )
     httpx_mock.add_response(
         status_code=400,
-        data=response_data.encode(),
+        content=response_data.encode(),
         headers={"content-type": "multipart/mixed; boundary=batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB"},
     )
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(

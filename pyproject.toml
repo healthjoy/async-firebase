@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "async-firebase"
-version = "2.3.0"
+version = "2.4.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -19,7 +19,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -28,26 +27,25 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.6.1,<3.12"
+python = ">=3.7,<3.12"
 
-dataclasses = { version = "~0.8", python = "~3.6" }
 google-auth = "~2.6.0"
-httpx = "<1.0.0"
+httpx = ">=0.23.0,<1.0.0"
 
 [tool.poetry.dev-dependencies]
-pre-commit = { version = "~2.15", python = ">=3.6" }
+pre-commit = "~2.20"
 cryptography = "~3.4.7"
-faker = "~8.14"
+Faker = "~15.3"
 
 # tests
 pytest = "~6.2.2"
-pytest-asyncio = "~0.15.1"
-pytest-benchmark = "~3.4.1"
+pytest-asyncio = "~0.20"
+pytest-benchmark = "~4.0.0"
 pytest-cov = "~2.12.1"
 pytest-freezegun = "~0.4.2"
-pytest-httpx = "~0.13"
-black = { version = "^22.3.0", python = ">=3.6.2,<3.11" }
-mypy = "~0.950"
+pytest-httpx = "~0.21.2"
+black = "^22.10.0"
+mypy = "~0.991"
 
 [tool.isort]
 atomic = true
