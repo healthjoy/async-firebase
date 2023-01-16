@@ -97,7 +97,9 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
 
 
 def serialize_mime_message(
-    message: t.Union[MIMEMultipart, MIMENonMultipart], mangle_from: bool = None, max_header_len: int = None
+    message: t.Union[MIMEMultipart, MIMENonMultipart],
+    mangle_from: t.Optional[bool] = None,
+    max_header_len: t.Optional[int] = None,
 ) -> str:
     """
     Serialize the MIME type message.

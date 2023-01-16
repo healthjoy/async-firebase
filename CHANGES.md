@@ -3,6 +3,7 @@
 ## 2.4.0
 * [BREAKING] Drop support of **Python 3.6**
 * Update dependencies
+* Make implicit optional type hints PEP 484 compliant.
 
 ## 2.3.0
 Method ``client.build_android_config`` has been adjusted, so when ``data`` parameter is passed but the value is not set (equal to `None`),
