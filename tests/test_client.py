@@ -63,6 +63,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
         tag="test",
         click_action="TOP_STORY_ACTIVITY",
         channel_id="some_channel_id",
+        notification_count=7,
     )
     assert android_config == AndroidConfig(
         **{
@@ -85,6 +86,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
                     "title_loc_key": None,
                     "title_loc_args": [],
                     "channel_id": "some_channel_id",
+                    "notification_count": 7,
                 }
             ),
         }

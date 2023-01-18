@@ -176,6 +176,7 @@ class AsyncFirebaseClient:
         title_loc_key: t.Optional[str] = None,
         title_loc_args: t.Optional[t.List[str]] = None,
         channel_id: t.Optional[str] = None,
+        notification_count: t.Optional[int] = None,
     ) -> AndroidConfig:
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
@@ -208,6 +209,9 @@ class AsyncFirebaseClient:
             in ``title_loc_key`` (optional).
         :param channel_id: Notification channel id, used by android to allow user to configure notification display
             rules on per-channel basis (optional).
+        :param notification_count: The number of items in notification. May be displayed as a badge count for launchers
+            that support badging. If zero or unspecified, systems that support badging use the default, which is to
+            increment a number displayed on the long-press menu each time a new notification arrives (optional).
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         android_config = AndroidConfig(
@@ -229,6 +233,7 @@ class AsyncFirebaseClient:
                 title_loc_key=title_loc_key,
                 title_loc_args=title_loc_args or [],
                 channel_id=channel_id,
+                notification_count=notification_count,
             ),
         )
 
