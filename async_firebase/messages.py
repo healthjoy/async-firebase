@@ -30,6 +30,13 @@ class AndroidNotification:
     title_loc_key: key of the title string in the app's string resources to use to localize the title text (optional).
     title_loc_args: a list of resource keys that will be used in place of the format specifiers in ``title_loc_key``
         (optional).
+    channel_id: The notification's channel id (new in Android O). The app must create a channel with this channel ID
+        before any notification with this channel ID is received. If you don't send this channel ID in the request,
+        or if the channel ID provided has not yet been created by the app, FCM uses the channel ID specified in the
+        app manifest.
+    notification_count: the number of items this notification represents (optional). If zero or unspecified, systems
+        that support badging use the default, which is to increment a number displayed on the long-press menu each time
+        a new notification arrives.
     """
 
     title: t.Optional[str] = None
@@ -44,6 +51,7 @@ class AndroidNotification:
     title_loc_key: t.Optional[str] = None
     title_loc_args: t.List[str] = field(default_factory=list)
     channel_id: t.Optional[str] = None
+    notification_count: t.Optional[int] = None
 
 
 @dataclass
