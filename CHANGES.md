@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.5.0
+* Adds field ``notification_count`` to ``AndroidNotification`` message.
+
 ## 2.4.0
 * [BREAKING] Drop support of **Python 3.6**
 * Update dependencies
