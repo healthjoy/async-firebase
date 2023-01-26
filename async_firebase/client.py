@@ -388,7 +388,7 @@ class AsyncFirebaseClient:
         data: t.Optional[t.Dict[str, str]] = None,
         notification: t.Optional[Notification] = None,
         topic: t.Optional[str] = None,
-        webpush: t.Optional[t.Dict[str, str]] = None,
+        webpush: t.Optional[t.Dict[str, t.Any]] = None,
         dry_run: bool = False,
     ) -> FcmPushResponse:
         """
@@ -474,7 +474,7 @@ class AsyncFirebaseClient:
         apns: t.Optional[APNSConfig] = None,
         data: t.Optional[t.Dict[str, str]] = None,
         notification: t.Optional[Notification] = None,
-        webpush: t.Optional[t.Dict[str, str]] = None,
+        webpush: t.Optional[t.Dict[str, t.Any]] = None,
         dry_run: bool = False,
     ) -> FcmPushMulticastResponse:
         """
