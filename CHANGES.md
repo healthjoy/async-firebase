@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.5.1
+* Fix WebPush type annotation
+
 ## 2.5.0
 * Adds field ``notification_count`` to ``AndroidNotification`` message.
 
