@@ -16,8 +16,10 @@ from async_firebase.messages import (
     Aps,
     ApsAlert,
     FcmPushMulticastResponse,
-    Message,
     FcmPushResponse,
+    Message,
+    WebpushConfig,
+    WebpushNotification, WebpushFCMOptions,
 )
 from async_firebase.utils import FcmErrorCode
 
@@ -531,3 +533,33 @@ def test_assemble_push_notification(fake_async_fcm_client_w_creds, apns_config, 
         apns_config=apns_config, dry_run=True, message=message
     )
     assert push_notification == exp_push_notification
+
+
+def test_build_webpush_config(fake_async_fcm_client_w_creds):
+    webpush_config = fake_async_fcm_client_w_creds.build_webpush_config(
+        data={"attr_1": "value_1", "attr_2": "value_2"},
+        title="Test Webpush Title",
+        body="Test Webpush Body",
+        image="https://cdn.healhtjoy.com/public/test-image.png",
+        language="en",
+        tag="test",
+        custom_data={"attr_3": "value_3", "attr_4": "value_4"},
+        link="https://link-to-something.domain.com"
+    )
+    assert webpush_config == WebpushConfig(
+        data={"attr_1": "value_1", "attr_2": "value_2"},
+        headers={},
+        notification=WebpushNotification(
+            title="Test Webpush Title",
+            body="Test Webpush Body",
+            image="https://cdn.healhtjoy.com/public/test-image.png",
+            language="en",
+            tag="test",
+            silent=False,
+            renotify=False,
+            actions=[],
+            direction="auto",
+            custom_data={"attr_3": "value_3", "attr_4": "value_4"},
+        ),
+        fcm_options=WebpushFCMOptions(link="https://link-to-something.domain.com")
+    )

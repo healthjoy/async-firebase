@@ -32,6 +32,10 @@ from async_firebase.messages import (
     Message,
     Notification,
     PushNotification,
+    WebpushConfig,
+    WebpushFCMOptions,
+    WebpushNotification,
+    WebpushNotificationAction,
 )
 from async_firebase.utils import (
     FcmPushMulticastResponseHandler,
@@ -334,6 +338,80 @@ class AsyncFirebaseClient:
         return apns_config
 
     @staticmethod
+    def build_webpush_config(  # pylint: disable=too-many-locals
+        *,
+        data: t.Dict[str, str],
+        headers: t.Optional[t.Dict[str, str]] = None,
+        title: t.Optional[str] = None,
+        body: t.Optional[str] = None,
+        icon: t.Optional[str] = None,
+        actions: t.Optional[t.List[WebpushNotificationAction]] = None,
+        badge: t.Optional[str] = None,
+        direction: t.Optional[str] = "auto",
+        image: t.Optional[str] = None,
+        language: t.Optional[str] = None,
+        renotify: t.Optional[bool] = False,
+        require_interaction: t.Optional[bool] = None,
+        silent: t.Optional[bool] = False,
+        tag: t.Optional[str] = None,
+        timestamp_millis: t.Optional[int] = None,
+        vibrate: t.Optional[str] = None,
+        custom_data: t.Optional[t.Dict[str, str]] = None,
+        link: t.Optional[str] = None,
+    ) -> WebpushConfig:
+        """
+        Constructs WebpushConfig that will be used to customize the messages that are sent user agents.
+
+        :param data: A dictionary of data fields (optional). All keys and values in the dictionary must be strings.
+        :param headers: a dictionary of headers (optional).
+        :param title: title of the notification (optional).
+        :param body: body of the notification (optional).
+        :param icon: icon URL of the notification (optional).
+        :param actions: a list of ``messages.WebpushNotificationAction`` instances (optional).
+        :param badge: URL of the image used to represent the notification when there is not enough space to display the
+            notification itself (optional).
+        :param data: any arbitrary JSON data that should be associated with the notification (optional).
+        :param direction: the direction in which to display the notification (optional). Must be either 'auto', 'ltr'
+            or 'rtl'.
+        :param image: the URL of an image to be displayed in the notification (optional).
+        :param language: notification language (optional).
+        :param renotify: a boolean indicating whether the user should be notified after a new notification replaces
+            an old one (optional).
+        :param require_interaction: a boolean indicating whether a notification should remain active until the user
+            clicks or dismisses it, rather than closing automatically (optional).
+        :param silent: ``True`` to indicate that the notification should be silent (optional).
+        :param tag: an identifying tag on the notification (optional).
+        :param timestamp_millis: a timestamp value in milliseconds on the notification (optional).
+        :param vibrate: a vibration pattern for the device's vibration hardware to emit when the notification
+            fires (optional). The pattern is specified as an integer array.
+        :param custom_data: a dict of custom key-value pairs to be included in the notification (optional)
+        :param link: The link to open when the user clicks on the notification. Must be an HTTPS URL (optional).
+        :return: an instance of ``messages.WebpushConfig`` to included in the resulting payload.
+        """
+        return WebpushConfig(
+            data=data,
+            headers=headers or {},
+            notification=WebpushNotification(
+                title=title,
+                body=body,
+                icon=icon,
+                actions=actions or [],
+                badge=badge,
+                direction=direction,
+                image=image,
+                language=language,
+                renotify=renotify,
+                require_interaction=require_interaction,
+                silent=silent,
+                tag=tag,
+                timestamp_millis=timestamp_millis,
+                vibrate=vibrate,
+                custom_data=custom_data or {},
+            ),
+            fcm_options=WebpushFCMOptions(link=link) if link else None,
+        )
+
+    @staticmethod
     def _get_request_id():
         """Generate unique request ID."""
         return str(uuid.uuid4())
@@ -388,7 +466,7 @@ class AsyncFirebaseClient:
         data: t.Optional[t.Dict[str, str]] = None,
         notification: t.Optional[Notification] = None,
         topic: t.Optional[str] = None,
-        webpush: t.Optional[t.Dict[str, t.Any]] = None,
+        webpush: t.Optional[WebpushConfig] = None,
         dry_run: bool = False,
     ) -> FcmPushResponse:
         """
@@ -402,7 +480,7 @@ class AsyncFirebaseClient:
         :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
             in a resulting message.
         :param topic: name of the Firebase topic to which the message should be sent.
-        :param webpush: an instance of ``messages.WebpushConfig``. NOT IMPLEMENTED YET.
+        :param webpush: an instance of ``messages.WebpushConfig``.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
 
@@ -448,7 +526,7 @@ class AsyncFirebaseClient:
             data=data or {},
             notification=notification,
             android=android,
-            webpush=webpush or {},
+            webpush=webpush,
             apns=apns,
             topic=topic,
             condition=condition,
@@ -474,7 +552,7 @@ class AsyncFirebaseClient:
         apns: t.Optional[APNSConfig] = None,
         data: t.Optional[t.Dict[str, str]] = None,
         notification: t.Optional[Notification] = None,
-        webpush: t.Optional[t.Dict[str, t.Any]] = None,
+        webpush: t.Optional[WebpushConfig] = None,
         dry_run: bool = False,
     ) -> FcmPushMulticastResponse:
         """
@@ -487,7 +565,7 @@ class AsyncFirebaseClient:
         :param data: a dictionary of data fields. All keys and values in the dictionary must be strings.
         :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
             in a resulting message.
-        :param webpush: an instance of ``messages.WebpushConfig``. NOT IMPLEMENTED YET.
+        :param webpush: an instance of ``messages.WebpushConfig``.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
         """
@@ -514,7 +592,7 @@ class AsyncFirebaseClient:
                     data=data or {},
                     notification=notification,
                     android=android,
-                    webpush=webpush or {},
+                    webpush=webpush,
                     apns=apns,
                 ),
             )

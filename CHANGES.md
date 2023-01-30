@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.6.0
+* Add object for sending Web Push.
+
 ## 2.5.1
 * Fix WebPush type annotation
 

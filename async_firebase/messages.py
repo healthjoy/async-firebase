@@ -187,6 +187,100 @@ class Notification:
 
 
 @dataclass
+class WebpushFCMOptions:
+    """
+    Options for features provided by the FCM SDK for Web.
+
+    Arguments:
+    link: The link to open when the user clicks on the notification. Must be an HTTPS URL (optional).
+    """
+
+    link: str
+
+
+@dataclass
+class WebpushNotificationAction:
+    """
+    An action available to the users when the notification is presented.
+
+    Arguments:
+    action: Action string.
+    title: Title string.
+    icon: Icon URL for the action (optional).
+    """
+
+    action: t.Optional[str]
+    title: t.Optional[str]
+    icon: t.Optional[str] = None
+
+
+@dataclass
+class WebpushNotification:
+    """
+    Webpush-specific notification parameters.
+
+    Arguments:
+    title: title of the notification (optional). If specified, overrides the title set via ``messages.Notification``.
+    body: body of the notification (optional). If specified, overrides the body set via ``messages.Notification``.
+    icon: icon URL of the notification (optional).
+    actions: a list of ``messages.WebpushNotificationAction`` instances (optional).
+    badge: URL of the image used to represent the notification when there is not enough space to display the
+        notification itself (optional).
+    data: any arbitrary JSON data that should be associated with the notification (optional).
+    direction: the direction in which to display the notification (optional). Must be either 'auto', 'ltr' or 'rtl'.
+    image: the URL of an image to be displayed in the notification (optional).
+    language: notification language (optional).
+    renotify: a boolean indicating whether the user should be notified after a new notification replaces
+        an old one (optional).
+    require_interaction: a boolean indicating whether a notification should remain active until the user clicks or
+        dismisses it, rather than closing automatically (optional).
+    silent: ``True`` to indicate that the notification should be silent (optional).
+    tag: an identifying tag on the notification (optional).
+    timestamp_millis: a timestamp value in milliseconds on the notification (optional).
+    vibrate: a vibration pattern for the device's vibration hardware to emit when the notification fires (optional).
+        The pattern is specified as an integer array.
+    custom_data: a dict of custom key-value pairs to be included in the notification (optional)
+    """
+
+    title: t.Optional[str] = None
+    body: t.Optional[str] = None
+    icon: t.Optional[str] = None
+    actions: t.List[WebpushNotificationAction] = field(default_factory=list)
+    badge: t.Optional[str] = None
+    data: t.Dict[str, str] = field(default_factory=dict)
+    direction: t.Optional[str] = None
+    image: t.Optional[str] = None
+    language: t.Optional[str] = None
+    renotify: t.Optional[bool] = None
+    require_interaction: t.Optional[bool] = None
+    silent: t.Optional[bool] = None
+    tag: t.Optional[str] = None
+    timestamp_millis: t.Optional[int] = None
+    vibrate: t.Optional[str] = None
+    custom_data: t.Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class WebpushConfig:
+    """
+    Webpush-specific options that can be included in a message.
+
+    Attributes:
+    headers: a dictionary of headers (optional). Refer to
+        [Webpush protocol](https://tools.ietf.org/html/rfc8030#section-5) for supported headers.
+    data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+        strings. When specified, overrides any data fields set via ``Message.data``.
+    notification: a ``messages.WebpushNotification`` to be included in the message (optional).
+    fcm_options: a ``messages.WebpushFCMOptions`` instance to be included in the message (optional).
+    """
+
+    headers: t.Dict[str, str] = field(default_factory=dict)
+    data: t.Dict[str, str] = field(default_factory=dict)
+    notification: t.Optional[WebpushNotification] = field(default=None)
+    fcm_options: t.Optional[WebpushFCMOptions] = field(default=None)
+
+
+@dataclass
 class Message:
     """
     A common message that can be sent via Firebase.
@@ -198,7 +292,7 @@ class Message:
     data: a dictionary of data fields (optional). All keys and values in the dictionary must be strings.
     notification: an instance of ``messages.Notification`` (optional).
     android: an instance of ``messages.AndroidConfig`` (optional).
-    webpush: an instance of ``messages.WebpushConfig`` (optional). NOT IMPLEMENTED YET.
+    webpush: an instance of ``messages.WebpushConfig`` (optional).
     apns: an instance of ``messages.ApnsConfig`` (optional).
     token: the registration token of the device to which the message should be sent.
     topic: name of the Firebase topic to which the message should be sent (optional).
@@ -209,7 +303,7 @@ class Message:
     data: t.Dict[str, str] = field(default_factory=dict)
     notification: t.Optional[Notification] = field(default=None)
     android: t.Optional[AndroidConfig] = field(default=None)
-    webpush: t.Dict[str, str] = field(default_factory=dict)
+    webpush: t.Optional[WebpushConfig] = field(default=None)
     apns: t.Optional[APNSConfig] = field(default=None)
     topic: t.Optional[str] = None
     condition: t.Optional[str] = None
