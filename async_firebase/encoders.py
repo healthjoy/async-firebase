@@ -18,7 +18,6 @@ def aps_encoder(aps: Aps) -> t.Optional[t.Dict[str, t.Any]]:
         return None
 
     custom_data: t.Dict[str, t.Any] = deepcopy(aps.custom_data) or {}  # type: ignore
-    aps.custom_data.clear()  # type: ignore
 
     payload = {
         "aps": {
