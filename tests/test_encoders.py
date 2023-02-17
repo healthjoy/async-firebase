@@ -102,3 +102,28 @@ from async_firebase.messages import Aps, ApsAlert
 def test_aps_encoder(aps_obj, exp_result):
     aps_dict = aps_encoder(aps_obj)
     assert aps_dict == exp_result
+
+def test_aps_encoder_does_not_modify_custom_data():
+    custom_data = {
+        "str_attr": "value_1",
+        "int_attr": 42,
+        "float_attr": 42.42,
+        "list_attr": [1, 2, 3],
+        "dict_attr": {"a": "A", "b": "B"},
+        "bool_attr": False,
+    }
+
+    aps = Aps(
+        alert="push text",
+        badge=5,
+        sound="default",
+        content_available=True,
+        category="NEW_MESSAGE",
+        mutable_content=False,
+        custom_data=custom_data.copy(),
+    )
+
+    assert aps.custom_data == custom_data
+    aps_encoder(aps)
+    assert len(custom_data) == 6
+    assert aps.custom_data == custom_data
