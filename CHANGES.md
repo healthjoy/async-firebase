@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.6.1
+* ``async_firebase.encoders.aps_encoder`` no longer clears ``custom_data`` dictionary, as this causes subsequent notifications to not get any content in ``custom_data`` dictionary.
+
 ## 2.6.0
 * Add object for sending Web Push.
 
