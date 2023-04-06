@@ -16,6 +16,7 @@
   * Extremely lightweight and does not rely on ``firebase-admin`` which is hefty
   * Send push notifications to Android and iOS devices
   * Send Multicast push notification to Android and iOS devices
+  * Send Web push notifications
   * Set TTL (time to live) for notifications
   * Set priority for notifications
   * Set collapse-key for notifications
