@@ -1,14 +1,14 @@
 [tool.poetry]
 name = "async-firebase"
-version = "2.7.0"
+version = "3.0.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
-    "Aleksandr Omyshev <oomyshev@healthjoy.com>"
+    "Oleksandr Omyshev <oomyshev@healthjoy.com>"
 ]
 maintainers = [
     "Healthjoy Developers <developers@healthjoy.com>",
-    "Aleksandr Omyshev <oomyshev@healthjoy.com>"
+    "Oleksandr Omyshev <oomyshev@healthjoy.com>"
 ]
 readme = "README.md"
 repository = "https://github.com/healthjoy/async-firebase"

@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.0.0
+Remastering client interface
+* [BREAKING] The signatures of the methods ``push`` and ``push_multicast`` have been changed.
+  * Method ``push`` accepts instance of ``messages.Message`` and returns ``messages.FcmPushBatchResponse``
+  * Method ``push_multicast`` accepts instance of ``messages.MulticastMessage`` and returns ``messages.FcmPushBatchResponse``
+* New method ``push_batch`` to send message in a single batch has been added. It takes a list of ``messages.Message`` instances.
+* To get closer to official library ``firebase-admin`` a couple of handy aliases have been added:
+  * ``send => push``
+  * ``send_all | send_batch => push_batch``
+  * ``send_multicast => push_multicast``
+
+  Example:
+    * ``client.send(Message(...))``
+    * ``client.send_multicast(MulticastMessage(...))``
+    * ``client.send_all([Message(...), Message(...)])``
+
+* ``README.md`` has been updated to highlight different in interfaces for versions prior **3.x** and after
+* Error class ``FcmPushMulticastResponse`` renamed to ``FcmPushBatchResponse``.
+
 ## 2.7.0
 * Class ``AsyncFirebaseClient`` has been refactored. Communication related code extracted into base class.
 

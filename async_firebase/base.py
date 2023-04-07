@@ -16,7 +16,7 @@ import httpx
 from google.oauth2 import service_account  # type: ignore
 
 import pkg_resources  # type: ignore
-from async_firebase.messages import FcmPushMulticastResponse, FcmPushResponse
+from async_firebase.messages import FcmPushBatchResponse, FcmPushResponse
 from async_firebase.utils import (
     FcmPushMulticastResponseHandler,
     FcmPushResponseHandler,
@@ -155,7 +155,7 @@ class AsyncClientBase:
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FcmPushResponse, FcmPushMulticastResponse]:
+    ) -> t.Union[FcmPushResponse, FcmPushBatchResponse]:
         """
         Sends an HTTP call using the ``httpx`` library.
 
