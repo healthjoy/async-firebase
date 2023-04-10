@@ -6,16 +6,6 @@ Remastering client interface
   * Method ``push`` accepts instance of ``messages.Message`` and returns ``messages.FcmPushBatchResponse``
   * Method ``push_multicast`` accepts instance of ``messages.MulticastMessage`` and returns ``messages.FcmPushBatchResponse``
 * New method ``push_batch`` to send message in a single batch has been added. It takes a list of ``messages.Message`` instances.
-* To get closer to official library ``firebase-admin`` a couple of handy aliases have been added:
-  * ``send => push``
-  * ``send_all | send_batch => push_batch``
-  * ``send_multicast => push_multicast``
-
-  Example:
-    * ``client.send(Message(...))``
-    * ``client.send_multicast(MulticastMessage(...))``
-    * ``client.send_all([Message(...), Message(...)])``
-
 * ``README.md`` has been updated to highlight different in interfaces for versions prior **3.x** and after
 * Error class ``FcmPushMulticastResponse`` renamed to ``FcmPushBatchResponse``.
 

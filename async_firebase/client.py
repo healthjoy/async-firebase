@@ -475,8 +475,3 @@ class AsyncFirebaseClient(AsyncClientBase):
         if not isinstance(batch_response, FcmPushBatchResponse):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return batch_response
-
-    # Handy aliases to get closer to firebase-admin naming
-    send = push
-    send_multicast = push_multicast
-    send_all = send_batch = push_batch
