@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.0
+* The limit on the number of messages (>= 500) that can be sent using the ``send_all`` method has been restored.
+
 ## 3.0.0
 Remastering client interface
 * [BREAKING] The methods ``push`` and ``push_multicast`` renamed to ``send`` and ``send_multicast`` accordingly.

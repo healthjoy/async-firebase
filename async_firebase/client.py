@@ -42,7 +42,7 @@ from async_firebase.utils import (
 )
 
 DEFAULT_TTL = 604800
-MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
+BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
 
 
 class AsyncFirebaseClient(AsyncClientBase):
@@ -439,13 +439,16 @@ class AsyncFirebaseClient(AsyncClientBase):
         dry_run: bool = False,
     ) -> FCMBatchResponse:
         """
-        Send push notifications in a single batch.
+        Send the given messages to FCM in a single batch.
 
         :param messages: the list of messages to send.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
         :returns: instance of ``messages.FCMBatchResponse``
         """
+
+        if len(messages) > BATCH_MAX_MESSAGES:
+            raise ValueError(f"A list of messages must not contain more than {BATCH_MAX_MESSAGES} elements")
 
         multipart_message = MIMEMultipart("mixed")
         # Message should not write out it's own headers.

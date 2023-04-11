@@ -169,7 +169,7 @@ async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock
     assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
 
 
-async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+async def test_send_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
@@ -191,7 +191,7 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, ht
     assert response.message_id == "projects/fake-mobile-app/messages/fake_message_id"
 
 
-async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+async def test_send_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(
         status_code=401,
@@ -224,7 +224,7 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
     assert fcm_response.exception.cause.response.status_code == 401
 
 
-async def test_push_data_has_not_provided(fake_async_fcm_client_w_creds):
+async def test_send_data_has_not_provided(fake_async_fcm_client_w_creds):
     message = Message(token="device_id:device_token")
     with pytest.raises(ValueError):
         await fake_async_fcm_client_w_creds.send(message)
@@ -240,7 +240,7 @@ def test_creds_from_service_account_file(fake_async_fcm_client, fake_service_acc
     assert isinstance(fake_async_fcm_client._credentials, service_account.Credentials)
 
 
-async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+async def test_send_realistic_payload(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
@@ -289,7 +289,7 @@ async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_push_batch(fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock):
+async def test_send_all(fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     response_data = (
@@ -334,7 +334,7 @@ async def test_push_batch(fake_async_fcm_client_w_creds, fake_multi_device_token
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_push_batch_dry_run(
+async def test_send_all_dry_run(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -381,7 +381,7 @@ async def test_push_batch_dry_run(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
-async def test_push_multicast_too_many_tokens(
+async def test_send_multicast_too_many_tokens(
     fake_async_fcm_client_w_creds,
     fake_multi_device_tokens: list,
 ):
@@ -401,7 +401,7 @@ async def test_push_multicast_too_many_tokens(
         )
 
 
-async def test_push_batch_unknown_registration_token(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+async def test_send_all_unknown_registration_token(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     response_data = (
         "\r\n--batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB\r\nContent-Type: application/http\r\nContent-ID: "
@@ -435,7 +435,7 @@ async def test_push_batch_unknown_registration_token(fake_async_fcm_client_w_cre
     assert response.responses[0].exception.cause.response.status_code == 400
 
 
-async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+async def test_send_response_error_invalid_argument(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     response_data = (
         '\r\n--batch_H3WKviwlw1OiFBuquMNPomHJtcBwS2Oi\r\n'
@@ -475,10 +475,31 @@ async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_cred
     assert response.responses[0].exception.cause.response.status_code == 400
 
 
-async def test_push_batch_data_has_not_provided(fake_async_fcm_client_w_creds):
+async def test_send_all_data_has_not_provided(fake_async_fcm_client_w_creds):
     messages = [Message(token="device_id:device_token")]
     with pytest.raises(ValueError):
         await fake_async_fcm_client_w_creds.send_all(messages)
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
+async def test_send_all_too_many_messages(
+    fake_async_fcm_client_w_creds,
+    fake_multi_device_tokens: list,
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    with pytest.raises(ValueError):
+        await fake_async_fcm_client_w_creds.send_all(
+            [Message(apns=apns_config, token=device_token) for device_token in fake_multi_device_tokens],
+            dry_run=True
+        )
 
 
 @pytest.mark.parametrize(
