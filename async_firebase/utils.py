@@ -23,7 +23,7 @@ from async_firebase.errors import (
     UnknownError,
     UnregisteredError,
 )
-from async_firebase.messages import FcmPushBatchResponse, FcmPushResponse
+from async_firebase.messages import FCMBatchResponse, FCMResponse
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
@@ -122,10 +122,10 @@ def serialize_mime_message(
     return fp.getvalue()
 
 
-FcmResponseType = t.TypeVar("FcmResponseType", FcmPushResponse, FcmPushBatchResponse)
+FCMResponseType = t.TypeVar("FCMResponseType", FCMResponse, FCMBatchResponse)
 
 
-class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
+class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
 
     ERROR_CODE_TO_EXCEPTION_TYPE: t.Dict[str, t.Type[AsyncFirebaseError]] = {
         FcmErrorCode.INVALID_ARGUMENT.value: errors.InvalidArgumentError,
@@ -167,18 +167,18 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
     }
 
     @abstractmethod
-    def handle_response(self, response: httpx.Response) -> FcmResponseType:
+    def handle_response(self, response: httpx.Response) -> FCMResponseType:
         pass
 
     @abstractmethod
-    def handle_error(self, error: httpx.HTTPError) -> FcmResponseType:
+    def handle_error(self, error: httpx.HTTPError) -> FCMResponseType:
         pass
 
     @staticmethod
-    def _handle_response(response: httpx.Response) -> FcmPushResponse:
-        return FcmPushResponse(fcm_response=response.json())
+    def _handle_response(response: httpx.Response) -> FCMResponse:
+        return FCMResponse(fcm_response=response.json())
 
-    def _handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
+    def _handle_error(self, error: httpx.HTTPError) -> FCMResponse:
         exc = (
             (isinstance(error, httpx.HTTPStatusError) and self._handle_fcm_error(error))
             or (isinstance(error, httpx.HTTPError) and self._handle_request_error(error))
@@ -188,7 +188,7 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
                 cause=error,
             )
         )
-        return FcmPushResponse(exception=exc)
+        return FCMResponse(exception=exc)
 
     def _handle_request_error(self, error: httpx.HTTPError):
         if isinstance(error, httpx.TimeoutException):
@@ -252,18 +252,18 @@ class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
         return error_data
 
 
-class FcmPushResponseHandler(FcmResponseHandler[FcmPushResponse]):
-    def handle_error(self, error: httpx.HTTPError) -> FcmPushResponse:
+class FCMResponseHandler(FCMResponseHandlerBase[FCMResponse]):
+    def handle_error(self, error: httpx.HTTPError) -> FCMResponse:
         return self._handle_error(error)
 
-    def handle_response(self, response: httpx.Response) -> FcmPushResponse:
+    def handle_response(self, response: httpx.Response) -> FCMResponse:
         return self._handle_response(response)
 
 
-class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushBatchResponse]):
+class FCMBatchResponseHandler(FCMResponseHandlerBase[FCMBatchResponse]):
     def handle_error(self, error: httpx.HTTPError):
         fcm_response = self._handle_error(error)
-        return FcmPushBatchResponse(responses=[fcm_response])
+        return FCMBatchResponse(responses=[fcm_response])
 
     def handle_response(self, response: httpx.Response):
         fcm_push_responses = []
@@ -275,7 +275,7 @@ class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushBatchResponse]):
             else:
                 fcm_push_responses.append(self._handle_response(single_resp))
 
-        return FcmPushBatchResponse(responses=fcm_push_responses)
+        return FCMBatchResponse(responses=fcm_push_responses)
 
     @staticmethod
     def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:

@@ -24,8 +24,8 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
-    FcmPushBatchResponse,
-    FcmPushResponse,
+    FCMBatchResponse,
+    FCMResponse,
     Message,
     MulticastMessage,
     PushNotification,
@@ -35,8 +35,8 @@ from async_firebase.messages import (
     WebpushNotificationAction,
 )
 from async_firebase.utils import (
-    FcmPushMulticastResponseHandler,
-    FcmPushResponseHandler,
+    FCMBatchResponseHandler,
+    FCMResponseHandler,
     cleanup_firebase_message,
     serialize_mime_message,
 )
@@ -332,7 +332,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             fcm_options=WebpushFCMOptions(link=link) if link else None,
         )
 
-    async def send(self, message: Message, *, dry_run: bool = False) -> FcmPushResponse:
+    async def send(self, message: Message, *, dry_run: bool = False) -> FCMResponse:
         """
         Send push notification.
 
@@ -342,49 +342,51 @@ class AsyncFirebaseClient(AsyncClientBase):
 
         :raises:
 
-            ValueError is ``messages.PushNotification`` payload cannot be assembled
+            ValueError if ``messages.PushNotification`` payload cannot be assembled
 
-        :return: response from Firebase. Example of response:
+        :return: instance of ``messages.FCMResponse``
 
-            success::
+            Example of raw response:
 
-                {
-                    'name': 'projects/mobile-app/messages/0:1612788010922733%7606eb247606eb24'
-                }
+                success::
 
-            failure::
-
-                {
-                    'error': {
-                        'code': 400,
-                        'details': [
-                            {
-                                '@type': 'type.googleapis.com/google.rpc.BadRequest',
-                                'fieldViolations': [
-                                    {
-                                        'description': 'Value type for APS key [badge] is a number.',
-                                        'field': 'message.apns.payload.aps.badge'
-                                    }
-                                ]
-                            },
-                            {
-                                '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-                                'errorCode': 'INVALID_ARGUMENT'
-                            }
-                        ],
-                        'message': 'Value type for APS key [badge] is a number.',
-                        'status': 'INVALID_ARGUMENT'
+                    {
+                        'name': 'projects/mobile-app/messages/0:1612788010922733%7606eb247606eb24'
                     }
-                }
+
+                failure::
+
+                    {
+                        'error': {
+                            'code': 400,
+                            'details': [
+                                {
+                                    '@type': 'type.googleapis.com/google.rpc.BadRequest',
+                                    'fieldViolations': [
+                                        {
+                                            'description': 'Value type for APS key [badge] is a number.',
+                                            'field': 'message.apns.payload.aps.badge'
+                                        }
+                                    ]
+                                },
+                                {
+                                    '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                                    'errorCode': 'INVALID_ARGUMENT'
+                                }
+                            ],
+                            'message': 'Value type for APS key [badge] is a number.',
+                            'status': 'INVALID_ARGUMENT'
+                        }
+                    }
         """
         push_notification = self.assemble_push_notification(apns_config=message.apns, dry_run=dry_run, message=message)
 
         response = await self.send_request(
             uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
             json_payload=push_notification,
-            response_handler=FcmPushResponseHandler(),
+            response_handler=FCMResponseHandler(),
         )
-        if not isinstance(response, FcmPushResponse):
+        if not isinstance(response, FCMResponse):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return response
 
@@ -393,7 +395,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         multicast_message: MulticastMessage,
         *,
         dry_run: bool = False,
-    ) -> FcmPushBatchResponse:
+    ) -> FCMBatchResponse:
         """
         Send Multicast push notification.
 
@@ -401,6 +403,13 @@ class AsyncFirebaseClient(AsyncClientBase):
             May contain up to 500 device tokens.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
+
+        :raises:
+
+            ValueError if ``messages.PushNotification`` payload cannot be assembled
+            ValueError if ``messages.MulticastMessage`` contains more than MULTICAST_MESSAGE_MAX_DEVICE_TOKENS
+
+        :return: instance of ``messages.FCMBatchResponse``
         """
 
         if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
@@ -428,13 +437,14 @@ class AsyncFirebaseClient(AsyncClientBase):
         messages: t.Union[t.List[Message], t.Tuple[Message]],
         *,
         dry_run: bool = False,
-    ) -> FcmPushBatchResponse:
+    ) -> FCMBatchResponse:
         """
         Send push notifications in a single batch.
 
         :param messages: the list of messages to send.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
+        :returns: instance of ``messages.FCMBatchResponse``
         """
 
         multipart_message = MIMEMultipart("mixed")
@@ -470,8 +480,8 @@ class AsyncFirebaseClient(AsyncClientBase):
             uri=self.FCM_BATCH_ENDPOINT,
             content=body,
             headers={"Content-Type": f"multipart/mixed; boundary={multipart_message.get_boundary()}"},
-            response_handler=FcmPushMulticastResponseHandler(),
+            response_handler=FCMBatchResponseHandler(),
         )
-        if not isinstance(batch_response, FcmPushBatchResponse):
+        if not isinstance(batch_response, FCMBatchResponse):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return batch_response

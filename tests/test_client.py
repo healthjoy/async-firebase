@@ -15,8 +15,8 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
-    FcmPushBatchResponse,
-    FcmPushResponse,
+    FCMBatchResponse,
+    FCMResponse,
     Message,
     WebpushConfig,
     WebpushNotification, WebpushFCMOptions, MulticastMessage,
@@ -164,7 +164,7 @@ async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock
     )
     message = Message(apns=apns_config, token=fake_device_token)
     response = await fake_async_fcm_client_w_creds.send(message)
-    assert isinstance(response, FcmPushResponse)
+    assert isinstance(response, FCMResponse)
     assert response.success
     assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
 
@@ -186,7 +186,7 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, ht
     )
     message = Message(apns=apns_config, token=fake_device_token)
     response = await fake_async_fcm_client_w_creds.send(message, dry_run=True)
-    assert isinstance(response, FcmPushResponse)
+    assert isinstance(response, FCMResponse)
     assert response.success
     assert response.message_id == "projects/fake-mobile-app/messages/fake_message_id"
 
@@ -217,7 +217,7 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
     message = Message(apns=apns_config, token="qwerty:ytrewq")
     fcm_response = await fake_async_fcm_client_w_creds.send(message)
 
-    assert isinstance(fcm_response, FcmPushResponse)
+    assert isinstance(fcm_response, FCMResponse)
     assert not fcm_response.success
     assert fcm_response.exception is not None
     assert fcm_response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
@@ -325,7 +325,7 @@ async def test_push_batch(fake_async_fcm_client_w_creds, fake_multi_device_token
         Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
     ]
     response = await fake_async_fcm_client_w_creds.send_all(messages)
-    assert isinstance(response, FcmPushBatchResponse)
+    assert isinstance(response, FCMBatchResponse)
     assert response.success_count == 3
     assert response.failure_count == 0
     assert response.responses[0].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
@@ -372,7 +372,7 @@ async def test_push_batch_dry_run(
     ]
     response = await fake_async_fcm_client_w_creds.send_all(messages, dry_run=True)
 
-    assert isinstance(response, FcmPushBatchResponse)
+    assert isinstance(response, FCMBatchResponse)
     assert response.success_count == 3
     assert response.failure_count == 0
     assert response.responses[0].message_id == "projects/fake-mobile-app/messages/fake_message_id"
@@ -428,7 +428,7 @@ async def test_push_batch_unknown_registration_token(fake_async_fcm_client_w_cre
     messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
     response = await fake_async_fcm_client_w_creds.send_all(messages)
 
-    assert isinstance(response, FcmPushBatchResponse)
+    assert isinstance(response, FCMBatchResponse)
     assert response.success_count == 0
     assert response.failure_count == 1
     assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
@@ -468,7 +468,7 @@ async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_cred
     messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
     response = await fake_async_fcm_client_w_creds.send_all(messages)
 
-    assert isinstance(response, FcmPushBatchResponse)
+    assert isinstance(response, FCMBatchResponse)
     assert response.success_count == 0
     assert response.failure_count == 1
     assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value

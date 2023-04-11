@@ -16,10 +16,10 @@ import httpx
 from google.oauth2 import service_account  # type: ignore
 
 import pkg_resources  # type: ignore
-from async_firebase.messages import FcmPushBatchResponse, FcmPushResponse
+from async_firebase.messages import FCMBatchResponse, FCMResponse
 from async_firebase.utils import (
-    FcmPushMulticastResponseHandler,
-    FcmPushResponseHandler,
+    FCMBatchResponseHandler,
+    FCMResponseHandler,
     serialize_mime_message,
 )
 
@@ -151,11 +151,11 @@ class AsyncClientBase:
     async def send_request(
         self,
         uri: str,
-        response_handler: t.Union[FcmPushResponseHandler, FcmPushMulticastResponseHandler],
+        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FcmPushResponse, FcmPushBatchResponse]:
+    ) -> t.Union[FCMResponse, FCMBatchResponse]:
         """
         Sends an HTTP call using the ``httpx`` library.
 
