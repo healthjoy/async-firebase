@@ -23,7 +23,7 @@ from async_firebase.errors import (
     UnknownError,
     UnregisteredError,
 )
-from async_firebase.messages import FcmPushMulticastResponse, FcmPushResponse
+from async_firebase.messages import FcmPushBatchResponse, FcmPushResponse
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
@@ -122,7 +122,7 @@ def serialize_mime_message(
     return fp.getvalue()
 
 
-FcmResponseType = t.TypeVar("FcmResponseType", FcmPushResponse, FcmPushMulticastResponse)
+FcmResponseType = t.TypeVar("FcmResponseType", FcmPushResponse, FcmPushBatchResponse)
 
 
 class FcmResponseHandler(ABC, t.Generic[FcmResponseType]):
@@ -260,10 +260,10 @@ class FcmPushResponseHandler(FcmResponseHandler[FcmPushResponse]):
         return self._handle_response(response)
 
 
-class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastResponse]):
+class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushBatchResponse]):
     def handle_error(self, error: httpx.HTTPError):
         fcm_response = self._handle_error(error)
-        return FcmPushMulticastResponse(responses=[fcm_response])
+        return FcmPushBatchResponse(responses=[fcm_response])
 
     def handle_response(self, response: httpx.Response):
         fcm_push_responses = []
@@ -275,7 +275,7 @@ class FcmPushMulticastResponseHandler(FcmResponseHandler[FcmPushMulticastRespons
             else:
                 fcm_push_responses.append(self._handle_response(single_resp))
 
-        return FcmPushMulticastResponse(responses=fcm_push_responses)
+        return FcmPushBatchResponse(responses=fcm_push_responses)
 
     @staticmethod
     def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:

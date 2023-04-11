@@ -15,11 +15,11 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
-    FcmPushMulticastResponse,
+    FcmPushBatchResponse,
     FcmPushResponse,
     Message,
     WebpushConfig,
-    WebpushNotification, WebpushFCMOptions,
+    WebpushNotification, WebpushFCMOptions, MulticastMessage,
 )
 from async_firebase.utils import FcmErrorCode
 
@@ -133,7 +133,7 @@ def test_build_apns_config(fake_async_fcm_client_w_creds, freezer):
     )
 
 
-async def test__prepare_headers(fake_async_fcm_client_w_creds):
+async def test_prepare_headers(fake_async_fcm_client_w_creds):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     frozen_uuid = uuid.UUID(hex="6eadf1d38633427cb83dbb9be137f48c")
     fake_async_fcm_client_w_creds.get_request_id = lambda: str(frozen_uuid)
@@ -162,7 +162,8 @@ async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config)
+    message = Message(apns=apns_config, token=fake_device_token)
+    response = await fake_async_fcm_client_w_creds.send(message)
     assert isinstance(response, FcmPushResponse)
     assert response.success
     assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
@@ -183,7 +184,8 @@ async def test_push_dry_run(fake_async_fcm_client_w_creds, fake_device_token, ht
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config, dry_run=True)
+    message = Message(apns=apns_config, token=fake_device_token)
+    response = await fake_async_fcm_client_w_creds.send(message, dry_run=True)
     assert isinstance(response, FcmPushResponse)
     assert response.success
     assert response.message_id == "projects/fake-mobile-app/messages/fake_message_id"
@@ -212,7 +214,8 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    fcm_response = await fake_async_fcm_client_w_creds.push(device_token="qwerty:ytrewq", apns=apns_config)
+    message = Message(apns=apns_config, token="qwerty:ytrewq")
+    fcm_response = await fake_async_fcm_client_w_creds.send(message)
 
     assert isinstance(fcm_response, FcmPushResponse)
     assert not fcm_response.success
@@ -222,8 +225,9 @@ async def test_push_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
 
 
 async def test_push_data_has_not_provided(fake_async_fcm_client_w_creds):
+    message = Message(token="device_id:device_token")
     with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.push(device_token="device_id:device_token")
+        await fake_async_fcm_client_w_creds.send(message)
 
 
 def test_creds_from_service_account_info(fake_async_fcm_client, fake_service_account):
@@ -258,7 +262,8 @@ async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device
         mutable_content=True,
         content_available=True,
     )
-    await fake_async_fcm_client_w_creds.push(device_token=fake_device_token, apns=apns_config)
+    message = Message(apns=apns_config, token=fake_device_token)
+    await fake_async_fcm_client_w_creds.send(message)
     request_payload = json.loads(httpx_mock.get_requests()[0].read())
     assert request_payload == {
         "message": {
@@ -284,7 +289,7 @@ async def test_push_realistic_payload(fake_async_fcm_client_w_creds, fake_device
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+async def test_push_batch(fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     response_data = (
@@ -316,10 +321,11 @@ async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_t
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push_multicast(
-        device_tokens=fake_multi_device_tokens, apns=apns_config
-    )
-    assert isinstance(response, FcmPushMulticastResponse)
+    messages = [
+        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
+    ]
+    response = await fake_async_fcm_client_w_creds.send_all(messages)
+    assert isinstance(response, FcmPushBatchResponse)
     assert response.success_count == 3
     assert response.failure_count == 0
     assert response.responses[0].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
@@ -328,7 +334,9 @@ async def test_push_multicast(fake_async_fcm_client_w_creds, fake_multi_device_t
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+async def test_push_batch_dry_run(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
+):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     response_data = (
@@ -359,11 +367,12 @@ async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push_multicast(
-        device_tokens=fake_multi_device_tokens, apns=apns_config, dry_run=True
-    )
+    messages = [
+        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
+    ]
+    response = await fake_async_fcm_client_w_creds.send_all(messages, dry_run=True)
 
-    assert isinstance(response, FcmPushMulticastResponse)
+    assert isinstance(response, FcmPushBatchResponse)
     assert response.success_count == 3
     assert response.failure_count == 0
     assert response.responses[0].message_id == "projects/fake-mobile-app/messages/fake_message_id"
@@ -374,7 +383,7 @@ async def test_push_multicast_dry_run(fake_async_fcm_client_w_creds, fake_multi_
 @pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
 async def test_push_multicast_too_many_tokens(
     fake_async_fcm_client_w_creds,
-    fake_multi_device_tokens,
+    fake_multi_device_tokens: list,
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     apns_config = fake_async_fcm_client_w_creds.build_apns_config(
@@ -386,12 +395,13 @@ async def test_push_multicast_too_many_tokens(
         custom_data={"foo": "bar"},
     )
     with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.push_multicast(
-            device_tokens=fake_multi_device_tokens, apns=apns_config, dry_run=True
+        await fake_async_fcm_client_w_creds.send_multicast(
+            MulticastMessage(apns=apns_config, tokens=fake_multi_device_tokens),
+            dry_run=True
         )
 
 
-async def test_push_multicast_unknown_registration_token(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+async def test_push_batch_unknown_registration_token(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     response_data = (
         "\r\n--batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB\r\nContent-Type: application/http\r\nContent-ID: "
@@ -415,9 +425,10 @@ async def test_push_multicast_unknown_registration_token(fake_async_fcm_client_w
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["qwerty:ytrewq"], apns=apns_config)
+    messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
+    response = await fake_async_fcm_client_w_creds.send_all(messages)
 
-    assert isinstance(response, FcmPushMulticastResponse)
+    assert isinstance(response, FcmPushBatchResponse)
     assert response.success_count == 0
     assert response.failure_count == 1
     assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
@@ -454,18 +465,20 @@ async def test_push_response_error_invalid_argument(fake_async_fcm_client_w_cred
         category="test-category",
         custom_data={"foo": "bar"},
     )
-    response = await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["qwerty:ytrewq"], apns=apns_config)
+    messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
+    response = await fake_async_fcm_client_w_creds.send_all(messages)
 
-    assert isinstance(response, FcmPushMulticastResponse)
+    assert isinstance(response, FcmPushBatchResponse)
     assert response.success_count == 0
     assert response.failure_count == 1
     assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
     assert response.responses[0].exception.cause.response.status_code == 400
 
 
-async def test_push_multicast_data_has_not_provided(fake_async_fcm_client_w_creds):
+async def test_push_batch_data_has_not_provided(fake_async_fcm_client_w_creds):
+    messages = [Message(token="device_id:device_token")]
     with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.push_multicast(device_tokens=["device_id:device_token"])
+        await fake_async_fcm_client_w_creds.send_all(messages)
 
 
 @pytest.mark.parametrize(

@@ -24,10 +24,10 @@ from async_firebase.messages import (
     APNSPayload,
     Aps,
     ApsAlert,
-    FcmPushMulticastResponse,
+    FcmPushBatchResponse,
     FcmPushResponse,
     Message,
-    Notification,
+    MulticastMessage,
     PushNotification,
     WebpushConfig,
     WebpushFCMOptions,
@@ -332,31 +332,11 @@ class AsyncFirebaseClient(AsyncClientBase):
             fcm_options=WebpushFCMOptions(link=link) if link else None,
         )
 
-    async def push(  # pylint: disable=too-many-locals
-        self,
-        device_token: str,
-        *,
-        android: t.Optional[AndroidConfig] = None,
-        apns: t.Optional[APNSConfig] = None,
-        condition: t.Optional[str] = None,
-        data: t.Optional[t.Dict[str, str]] = None,
-        notification: t.Optional[Notification] = None,
-        topic: t.Optional[str] = None,
-        webpush: t.Optional[WebpushConfig] = None,
-        dry_run: bool = False,
-    ) -> FcmPushResponse:
+    async def send(self, message: Message, *, dry_run: bool = False) -> FcmPushResponse:
         """
         Send push notification.
 
-        :param device_token: device token allows to send targeted notifications to a particular instance of app.
-        :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
-        :param apns: as instance of ``messages.APNSConfig`` that contains iOS-specific options.
-        :param condition: the Firebase condition to which the message should be sent.
-        :param data: a dictionary of data fields. All keys and values in the dictionary must be strings.
-        :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
-            in a resulting message.
-        :param topic: name of the Firebase topic to which the message should be sent.
-        :param webpush: an instance of ``messages.WebpushConfig``.
+        :param message: the message that has to be sent.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
 
@@ -397,18 +377,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                     }
                 }
         """
-        message = Message(
-            token=device_token,
-            data=data or {},
-            notification=notification,
-            android=android,
-            webpush=webpush,
-            apns=apns,
-            topic=topic,
-            condition=condition,
-        )
-
-        push_notification = self.assemble_push_notification(apns_config=apns, dry_run=dry_run, message=message)
+        push_notification = self.assemble_push_notification(apns_config=message.apns, dry_run=dry_run, message=message)
 
         response = await self.send_request(
             uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
@@ -419,57 +388,67 @@ class AsyncFirebaseClient(AsyncClientBase):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return response
 
-    async def push_multicast(
+    async def send_multicast(
         self,
-        device_tokens: t.Union[t.List[str], t.Tuple[str]],
+        multicast_message: MulticastMessage,
         *,
-        android: t.Optional[AndroidConfig] = None,
-        apns: t.Optional[APNSConfig] = None,
-        data: t.Optional[t.Dict[str, str]] = None,
-        notification: t.Optional[Notification] = None,
-        webpush: t.Optional[WebpushConfig] = None,
         dry_run: bool = False,
-    ) -> FcmPushMulticastResponse:
+    ) -> FcmPushBatchResponse:
         """
         Send Multicast push notification.
 
-        :param device_tokens: the list of device tokens to send targeted notifications to a set of instances of app.
+        :param multicast_message: multicast message to send targeted notifications to a set of instances of app.
             May contain up to 500 device tokens.
-        :param android: as instance of ``messages.AndroidConfig`` that contains Android-specific options.
-        :param apns: as instance of ``messages.APNSConfig`` that contains iOS-specific options.
-        :param data: a dictionary of data fields. All keys and values in the dictionary must be strings.
-        :param notification: an instance of ``messages.Notification`` that contains a notification that can be included
-            in a resulting message.
-        :param webpush: an instance of ``messages.WebpushConfig``.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
             without actually delivering the message. Default to ``False``.
         """
 
-        if len(device_tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
+        if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
             raise ValueError(
                 f"A single ``messages.MulticastMessage`` may contain up to {MULTICAST_MESSAGE_MAX_DEVICE_TOKENS} "
                 "device tokens."
             )
 
+        messages = [
+            Message(
+                token=token,
+                data=multicast_message.data,
+                notification=multicast_message.notification,
+                android=multicast_message.android,
+                webpush=multicast_message.webpush,
+                apns=multicast_message.apns,
+            )
+            for token in multicast_message.tokens
+        ]
+
+        return await self.send_all(messages, dry_run=dry_run)
+
+    async def send_all(
+        self,
+        messages: t.Union[t.List[Message], t.Tuple[Message]],
+        *,
+        dry_run: bool = False,
+    ) -> FcmPushBatchResponse:
+        """
+        Send push notifications in a single batch.
+
+        :param messages: the list of messages to send.
+        :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
+            without actually delivering the message. Default to ``False``.
+        """
+
         multipart_message = MIMEMultipart("mixed")
         # Message should not write out it's own headers.
         setattr(multipart_message, "_write_headers", lambda self: None)
 
-        for device_token in device_tokens:
+        for message in messages:
             msg = MIMENonMultipart("application", "http")
             msg["Content-Transfer-Encoding"] = "binary"
             msg["Content-ID"] = self.get_request_id()
             push_notification = self.assemble_push_notification(
-                apns_config=apns,
+                apns_config=message.apns,
                 dry_run=dry_run,
-                message=Message(
-                    token=device_token,
-                    data=data or {},
-                    notification=notification,
-                    android=android,
-                    webpush=webpush,
-                    apns=apns,
-                ),
+                message=message,
             )
             body = self.serialize_batch_request(
                 httpx.Request(
@@ -493,6 +472,6 @@ class AsyncFirebaseClient(AsyncClientBase):
             headers={"Content-Type": f"multipart/mixed; boundary={multipart_message.get_boundary()}"},
             response_handler=FcmPushMulticastResponseHandler(),
         )
-        if not isinstance(batch_response, FcmPushMulticastResponse):
+        if not isinstance(batch_response, FcmPushBatchResponse):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return batch_response

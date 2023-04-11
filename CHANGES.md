@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.0
+Remastering client interface
+* [BREAKING] The methods ``push`` and ``push_multicast`` renamed to ``send`` and ``send_multicast`` accordingly.
+* [BREAKING] The signatures of the methods ``send`` and ``send_multicast`` have been changed.
+  * Method ``push`` accepts instance of ``messages.Message`` and returns ``messages.FcmPushBatchResponse``
+  * Method ``push_multicast`` accepts instance of ``messages.MulticastMessage`` and returns ``messages.FcmPushBatchResponse``
+* New method ``send_all`` to send messages in a single batch has been added. It takes a list of ``messages.Message`` instances.
+* ``README.md`` has been updated to highlight different in interfaces for versions prior **3.x** and after
+* Error class ``FcmPushMulticastResponse`` renamed to ``FcmPushBatchResponse``.
+
 ## 2.7.0
 * Class ``AsyncFirebaseClient`` has been refactored. Communication related code extracted into base class.
 

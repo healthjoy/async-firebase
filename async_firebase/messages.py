@@ -299,7 +299,7 @@ class Message:
     condition: the Firebase condition to which the message should be sent (optional).
     """
 
-    token: t.Optional[str]
+    token: str
     data: t.Dict[str, str] = field(default_factory=dict)
     notification: t.Optional[Notification] = field(default=None)
     android: t.Optional[AndroidConfig] = field(default=None)
@@ -307,6 +307,28 @@ class Message:
     apns: t.Optional[APNSConfig] = field(default=None)
     topic: t.Optional[str] = None
     condition: t.Optional[str] = None
+
+
+@dataclass
+class MulticastMessage:
+    """
+    A message that can be sent to multiple tokens via Firebase.
+
+    Attributes:
+    tokens: a list of registration tokens of targeted devices.
+    data: a dictionary of data fields (optional). All keys and values in the dictionary must be strings.
+    notification: an instance of ``messages.Notification`` (optional).
+    android: an instance of ``messages.AndroidConfig`` (optional).
+    webpush: an instance of ``messages.WebpushConfig`` (optional).
+    apns: an instance of ``messages.ApnsConfig`` (optional).
+    """
+
+    tokens: t.List[str]
+    data: t.Dict[str, str] = field(default_factory=dict)
+    notification: t.Optional[Notification] = field(default=None)
+    android: t.Optional[AndroidConfig] = field(default=None)
+    webpush: t.Optional[WebpushConfig] = field(default=None)
+    apns: t.Optional[APNSConfig] = field(default=None)
 
 
 @dataclass
@@ -346,7 +368,7 @@ class FcmPushResponse:
         return self.message_id is not None and not self.exception
 
 
-class FcmPushMulticastResponse:
+class FcmPushBatchResponse:
     """The response received from a batch request to the FCM API.
 
     The interface of this object is compatible with BatchResponse object of
