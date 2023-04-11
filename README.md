@@ -175,7 +175,7 @@ async def main():
         body="Recent store changes",
     )
     message = Message(android=android_config, token=device_token)
-    response = await client.push(message)
+    response = await client.send(message)
 
     print(response.success, response.message_id)
 
@@ -213,7 +213,7 @@ async def main():
         custom_data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"}
     )
     message = Message(apns=apns_config, token=device_token)
-    response = await client.push(message)
+    response = await client.send(message)
 
     print(response.success)
 
@@ -265,7 +265,7 @@ async def main():
     client = AsyncFirebaseClient()
     client.creds_from_service_account_info({...})
     message = Message(apns=apns_config, token=device_token)
-    response = await client.push(message)
+    response = await client.send(message)
     print(response.success)
 
 
