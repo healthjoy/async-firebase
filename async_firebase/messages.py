@@ -344,7 +344,7 @@ class PushNotification:
     validate_only: t.Optional[bool] = field(default=False)
 
 
-class FcmPushResponse:
+class FCMResponse:
     """The response received from an individual batched request to the FCM API.
 
     The interface of this object is compatible with SendResponse object of
@@ -354,7 +354,7 @@ class FcmPushResponse:
     def __init__(
         self, fcm_response: t.Optional[t.Dict[str, str]] = None, exception: t.Optional[AsyncFirebaseError] = None
     ):
-        """Inits FcmPushResponse object.
+        """Inits FCMResponse object.
 
         :param fcm_response: a dictionary with the data that FCM returns as a payload
         :param exception: an exception that may happen when communicating with FCM
@@ -368,24 +368,24 @@ class FcmPushResponse:
         return self.message_id is not None and not self.exception
 
 
-class FcmPushBatchResponse:
+class FCMBatchResponse:
     """The response received from a batch request to the FCM API.
 
     The interface of this object is compatible with BatchResponse object of
     the Google's firebase-admin-python package.
     """
 
-    def __init__(self, responses: t.List[FcmPushResponse]):
-        """Inits FcmPushMulticastResponse.
+    def __init__(self, responses: t.List[FCMResponse]):
+        """Inits FCMBatchResponse.
 
-        :param responses: a list of FcmPushResponse objects
+        :param responses: a list of FCMResponse objects
         """
         self._responses = responses
         self._success_count = len([resp for resp in responses if resp.success])
 
     @property
     def responses(self):
-        """A list of ``FcmPushResponse`` objects (possibly empty)."""
+        """A list of ``FCMResponse`` objects (possibly empty)."""
         return self._responses
 
     @property
