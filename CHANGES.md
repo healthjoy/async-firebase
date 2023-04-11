@@ -2,10 +2,11 @@
 
 ## 3.0.0
 Remastering client interface
-* [BREAKING] The signatures of the methods ``push`` and ``push_multicast`` have been changed.
+* [BREAKING] The methods ``push`` and ``push_multicast`` renamed to ``send`` and ``send_multicast`` accordingly.
+* [BREAKING] The signatures of the methods ``send`` and ``send_multicast`` have been changed.
   * Method ``push`` accepts instance of ``messages.Message`` and returns ``messages.FcmPushBatchResponse``
   * Method ``push_multicast`` accepts instance of ``messages.MulticastMessage`` and returns ``messages.FcmPushBatchResponse``
-* New method ``push_batch`` to send message in a single batch has been added. It takes a list of ``messages.Message`` instances.
+* New method ``send_all`` to send messages in a single batch has been added. It takes a list of ``messages.Message`` instances.
 * ``README.md`` has been updated to highlight different in interfaces for versions prior **3.x** and after
 * Error class ``FcmPushMulticastResponse`` renamed to ``FcmPushBatchResponse``.
 

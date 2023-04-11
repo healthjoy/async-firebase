@@ -332,7 +332,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             fcm_options=WebpushFCMOptions(link=link) if link else None,
         )
 
-    async def push(self, message: Message, *, dry_run: bool = False) -> FcmPushResponse:
+    async def send(self, message: Message, *, dry_run: bool = False) -> FcmPushResponse:
         """
         Send push notification.
 
@@ -388,7 +388,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return response
 
-    async def push_multicast(
+    async def send_multicast(
         self,
         multicast_message: MulticastMessage,
         *,
@@ -421,16 +421,16 @@ class AsyncFirebaseClient(AsyncClientBase):
             for token in multicast_message.tokens
         ]
 
-        return await self.push_batch(messages, dry_run=dry_run)
+        return await self.send_all(messages, dry_run=dry_run)
 
-    async def push_batch(
+    async def send_all(
         self,
         messages: t.Union[t.List[Message], t.Tuple[Message]],
         *,
         dry_run: bool = False,
     ) -> FcmPushBatchResponse:
         """
-        Send push notifications as a single batch.
+        Send push notifications in a single batch.
 
         :param messages: the list of messages to send.
         :param dry_run: indicating whether to run the operation in dry run mode (optional). Flag for testing the request
