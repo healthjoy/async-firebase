@@ -34,7 +34,7 @@ httpx = ">=0.23.0,<1.0.0"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "~2.20"
-cryptography = "~3.4.7"
+cryptography = "~39.0.1"
 Faker = "~15.3"
 
 # tests
