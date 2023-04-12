@@ -1,5 +1,31 @@
 # Changelog
 
+## 3.1.0
+* The limit on the number of messages (>= 500) that can be sent using the ``send_all`` method has been restored.
+
+## 3.0.0
+Remastering client interface
+* [BREAKING] The methods ``push`` and ``push_multicast`` renamed to ``send`` and ``send_multicast`` accordingly.
+* [BREAKING] The signatures of the methods ``send`` and ``send_multicast`` have been changed.
+  * Method ``send`` accepts instance of ``messages.Message`` and returns ``messages.FCMBatchResponse``
+  * Method ``send_multicast`` accepts instance of ``messages.MulticastMessage`` and returns ``messages.FCMBatchResponse``
+* New method ``send_all`` to send messages in a single batch has been added. It takes a list of ``messages.Message`` instances and returns ``messages.FCMBatchResponse``.
+* ``README.md`` has been updated to highlight different in interfaces for versions prior **3.x** and after
+* Improved naming:
+  * ``messages.FcmPushMulticastResponse`` to ``messages.FCMBatchResponse``
+  * ``messages.FcmPushResponse`` to ``messages.FCMResponse``
+  * ``utils.FcmReponseType`` to ``utils.FCMResponseType``
+  * ``utils.FcmResponseHandler`` to ``utils.FCMResponseHandlerBase``
+  * ``utils.FcmPushResponseHandler`` to ``utils.FCMResponseHandler``
+  * ``utils.FcmPushMulticastResponseHandler`` to ``utils.FCMBatchResponseHandler``
+* Type annotations and doc string were updated according to new naming.
+
+## 2.7.0
+* Class ``AsyncFirebaseClient`` has been refactored. Communication related code extracted into base class.
+
+## 2.6.1
+* ``async_firebase.encoders.aps_encoder`` no longer clears ``custom_data`` dictionary, as this causes subsequent notifications to not get any content in ``custom_data`` dictionary.
+
 ## 2.6.0
 * Add object for sending Web Push.
 
