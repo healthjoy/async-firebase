@@ -299,7 +299,7 @@ class Message:
     condition: the Firebase condition to which the message should be sent (optional).
     """
 
-    token: str
+    token: t.Optional[str] = None
     data: t.Dict[str, str] = field(default_factory=dict)
     notification: t.Optional[Notification] = field(default=None)
     android: t.Optional[AndroidConfig] = field(default=None)

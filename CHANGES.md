@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.1
+* [FIX] The push notification could not be sent to topic because ``messages.Message.token`` is declared as required attribute though it should be optional.
+``messages.Message.token`` turned into Optional attribute.
+
 ## 3.1.0
 * The limit on the number of messages (>= 500) that can be sent using the ``send_all`` method has been restored.
 
