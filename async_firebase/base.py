@@ -166,7 +166,7 @@ class AsyncClientBase:
         :param content: request content
         :return: HTTP response
         """
-        async with httpx.AsyncClient(base_url=self.BASE_URL) as client:
+        async with httpx.AsyncClient(base_url=self.BASE_URL, timeout=None) as client:
             logging.debug(
                 "Requesting POST %s, payload: %s, content: %s, headers: %s",
                 urljoin(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)),
