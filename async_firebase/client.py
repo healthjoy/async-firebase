@@ -15,7 +15,11 @@ from urllib.parse import urljoin
 
 import httpx
 
-from async_firebase.base import AsyncClientBase
+from async_firebase.base import (  # noqa: F401
+    AsyncClientBase,
+    RequestLimits,
+    RequestTimeout,
+)
 from async_firebase.encoders import aps_encoder
 from async_firebase.messages import (
     AndroidConfig,

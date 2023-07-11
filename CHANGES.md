@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.2.0
+* ``AsyncFirebaseClient`` empower with advanced features to configure request behaviour such as timeout, or connection pooling.
+Example:
+```python
+
+from async_firebase.client import AsyncFirebaseClient, RequestTimeout
+
+# This will disable timeout
+client = AsyncFirebaseClient(..., request_timeout=RequestTimeout(None))
+client.send(...)
+```
+
 ## 3.1.1
 * [FIX] The push notification could not be sent to topic because ``messages.Message.token`` is declared as required attribute though it should be optional.
 ``messages.Message.token`` turned into Optional attribute.

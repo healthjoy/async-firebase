@@ -16,6 +16,12 @@ import httpx
 from google.oauth2 import service_account  # type: ignore
 
 import pkg_resources  # type: ignore
+from async_firebase._config import (
+    DEFAULT_REQUEST_LIMITS,
+    DEFAULT_REQUEST_TIMEOUT,
+    RequestLimits,
+    RequestTimeout,
+)
 from async_firebase.messages import FCMBatchResponse, FCMResponse
 from async_firebase.utils import (
     FCMBatchResponseHandler,
@@ -40,6 +46,9 @@ class AsyncClientBase:
         self,
         credentials: t.Optional[service_account.Credentials] = None,
         scopes: t.Optional[t.List[str]] = None,
+        *,
+        request_timeout: RequestTimeout = DEFAULT_REQUEST_TIMEOUT,
+        request_limits: RequestLimits = DEFAULT_REQUEST_LIMITS,
     ) -> None:
         """
         :param credentials: instance of ``google.oauth2.service_account.Credentials``.
@@ -54,9 +63,14 @@ class AsyncClientBase:
                 self.creds_from_service_account_info(service_account_info)
 
         :param scopes: user-defined scopes to request during the authorization grant.
+        :param request_timeout: advanced feature that allows to change request timeout.
+        :param request_limits: advanced feature that allows to control the connection pool size.
         """
         self._credentials: service_account.Credentials = credentials
         self.scopes: t.List[str] = scopes or self.SCOPES
+
+        self._request_timeout = request_timeout
+        self._request_limits = request_limits
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
         """
@@ -166,7 +180,11 @@ class AsyncClientBase:
         :param content: request content
         :return: HTTP response
         """
-        async with httpx.AsyncClient(base_url=self.BASE_URL) as client:
+        async with httpx.AsyncClient(
+            base_url=self.BASE_URL,
+            timeout=httpx.Timeout(**self._request_timeout.__dict__),
+            limits=httpx.Limits(**self._request_limits.__dict__),
+        ) as client:
             logging.debug(
                 "Requesting POST %s, payload: %s, content: %s, headers: %s",
                 urljoin(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)),
