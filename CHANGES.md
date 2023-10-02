@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.2.1
+## 3.3.0
 * async_firebase now works with python 3.12
 
 ## 3.2.0
