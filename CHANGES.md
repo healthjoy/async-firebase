@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.3.0
+* async_firebase now works with python 3.12
+
 ## 3.2.0
 * ``AsyncFirebaseClient`` empower with advanced features to configure request behaviour such as timeout, or connection pooling.
 Example:

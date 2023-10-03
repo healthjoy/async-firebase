@@ -25,15 +25,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11' ]
+        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - name: virtualenv cache
         uses: syphar/restore-virtualenv@v1.2
@@ -48,9 +49,9 @@ jobs:
       - name: Install Python dependencies
         if: steps.cache-virtualenv.outputs.cache-hit != 'true'
         env:
-          POETRY_VERSION: 1.2.2
+          POETRY_VERSION: 1.6.1
         run: |
-          pip install pip==22.3 setuptools==65.5.0
+          pip install pip==23.2.1 setuptools==68.2.2
           curl -sSL https://install.python-poetry.org | python3 -
           export VENV="$(poetry env info -p)"
           source ${VENV}/bin/activate
@@ -102,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11' ]
+        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - name: source code
         uses: actions/checkout@v3
