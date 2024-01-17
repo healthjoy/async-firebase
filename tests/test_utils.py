@@ -13,6 +13,7 @@ from async_firebase.messages import (
 )
 from async_firebase.utils import (
     cleanup_firebase_message,
+    join_url,
     remove_null_values,
 )
 
@@ -217,4 +218,56 @@ def test_remove_null_values(data, exp_result):
 )
 def test_cleanup_firebase_message(firebase_message, exp_result):
     result = cleanup_firebase_message(firebase_message)
+    assert result == exp_result
+
+
+@pytest.mark.parametrize(
+    "base, parts, params, leading_slash, trailing_slash, exp_result",
+    (
+        ("http://base.ai", ["a", "b"], None, False, False, "http://base.ai/a/b"),
+        ("http://base.ai", ["foo", 42], None, False, False, "http://base.ai/foo/42"),
+        (
+            "http://base.ai",
+            ["foo", "bar"],
+            {"q": "test"},
+            False,
+            False,
+            "http://base.ai/foo/bar?q=test",
+        ),
+        (
+            "base_path/path_1",
+            ["foo", "bar"],
+            None,
+            True,
+            False,
+            "/base_path/path_1/foo/bar",
+        ),
+        (
+            "http://base.ai",
+            ["foo", "bar"],
+            None,
+            False,
+            True,
+            "http://base.ai/foo/bar/",
+        ),
+        (
+            "base_path/path_1",
+            ["foo", 42],
+            {"q": "test"},
+            True,
+            True,
+            "/base_path/path_1/foo/42/?q=test",
+        ),
+        (
+            "base_path/path_1",
+            [],
+            {"q": "test"},
+            True,
+            False,
+            "/base_path/path_1?q=test",
+        ),
+    ),
+)
+def test_join_url_common_flows(base, parts, params, leading_slash, trailing_slash, exp_result):
+    result = join_url(base, *parts, params=params, leading_slash=leading_slash, trailing_slash=trailing_slash)
     assert result == exp_result

@@ -8,6 +8,7 @@ from email.generator import Generator
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
 from email.parser import FeedParser
+from urllib.parse import quote, urlencode, urljoin
 
 import httpx
 
@@ -24,6 +25,40 @@ from async_firebase.errors import (
     UnregisteredError,
 )
 from async_firebase.messages import FCMBatchResponse, FCMResponse
+
+
+def join_url(
+    base: str,
+    *parts: t.Union[str, int],
+    params: t.Optional[dict] = None,
+    leading_slash: bool = False,
+    trailing_slash: bool = False,
+) -> str:
+    """Construct a full ("absolute") URL by combining a "base URL" (base) with another URL (url) parts.
+
+    :param base: base URL part
+    :param parts: another url parts that should be joined
+    :param params: dict with query params
+    :param leading_slash: flag to force leading slash
+    :param trailing_slash: flag to force trailing slash
+
+    :return: full URL
+    """
+    url = base
+    if parts:
+        url = '/'.join([base.strip('/'), quote('/'.join(map(lambda x: str(x).strip('/'), parts)))])
+
+    # trailing slash can be important
+    if trailing_slash:
+        url = f'{url}/'
+    # as well as a leading slash
+    if leading_slash:
+        url = f'/{url}'
+
+    if params:
+        url = urljoin(url, '?{}'.format(urlencode(params)))
+
+    return url
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
@@ -126,7 +161,6 @@ FCMResponseType = t.TypeVar("FCMResponseType", FCMResponse, FCMBatchResponse)
 
 
 class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
-
     ERROR_CODE_TO_EXCEPTION_TYPE: t.Dict[str, t.Type[AsyncFirebaseError]] = {
         FcmErrorCode.INVALID_ARGUMENT.value: errors.InvalidArgumentError,
         FcmErrorCode.FAILED_PRECONDITION.value: errors.FailedPreconditionError,

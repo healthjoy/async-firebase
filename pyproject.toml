@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "async-firebase"
-version = "3.3.0"
+version = "3.4.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -50,13 +50,22 @@ mypy = "~0.991"
 
 [tool.isort]
 atomic = true
-force_grid_wrap = 0
-include_trailing_comma = true
+known_third_party = [
+    "cryptography", "faker", "google", "httpx", "pytest", "pytest_httpx"
+]
+sections = [
+    "FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"
+]
+known_first_party = ["async_firebase", "tests"]
+no_lines_before = "STDLIB"
+default_section = "FIRSTPARTY"
 lines_after_imports = 2
 multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
 use_parentheses = true
-known_first_party = "async_firebase"
 line_length = 120
+ensure_newline_before_comments = true
 
 [build-system]
 requires = ["poetry>=1.0"]

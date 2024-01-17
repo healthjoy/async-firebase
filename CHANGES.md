@@ -1,7 +1,10 @@
 # Changelog
 
+## 3.4.0
+* Refactored  ``async_firebase.base.AsyncClientBase`` to take advantage of connection pool. So the HTTP client will be created once during class ``async_firebase.client.AsyncFirebaseClient`` instantiation.
+
 ## 3.3.0
-* async_firebase now works with python 3.12
+* `async_firebase` now works with python 3.12
 
 ## 3.2.0
 * ``AsyncFirebaseClient`` empower with advanced features to configure request behaviour such as timeout, or connection pooling.

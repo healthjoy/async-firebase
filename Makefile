@@ -37,7 +37,7 @@ help:
 install:
 	@echo "$(BOLD)Installing package$(RESET)"
 	@poetry config virtualenvs.create false
-	@poetry install --only main --no-root
+	@poetry install --only main
 	@echo "$(BOLD)Done!$(RESET)"
 
 .PHONY: update
