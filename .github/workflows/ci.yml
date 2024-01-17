@@ -18,6 +18,9 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+env:
+  POETRY_VERSION: 1.5.1
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   create-virtualenv:
@@ -30,35 +33,31 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
 
-      - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1.2
-        id: cache-virtualenv
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
         with:
-          custom_cache_key_element: v1.2
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
-      - name: pip cache
-        uses: syphar/restore-pip-download-cache@v1
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install Python dependencies
-        if: steps.cache-virtualenv.outputs.cache-hit != 'true'
-        env:
-          POETRY_VERSION: 1.6.1
-        run: |
-          pip install pip==23.2.1 setuptools==68.2.2
-          curl -sSL https://install.python-poetry.org | python3 -
-          export VENV="$(poetry env info -p)"
-          source ${VENV}/bin/activate
-          poetry install --no-interaction -vv
+      - name: Install Dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction -vv
 
       - name: Log currently installed packages and versions
-        run: pip list
+        run: poetry show
 
   linters-black:
     needs: create-virtualenv
@@ -68,16 +67,30 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
-
-      - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1.2
-        id: cache-virtualenv
+        uses: actions/setup-python@v4
         with:
-          custom_cache_key_element: v1.2
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
 
       - name: Check code style
-        run: black --check --line-length=120 --diff async_firebase
+        run: poetry run black --check --line-length=120 --diff async_firebase
 
   linters-mypy:
     needs: create-virtualenv
@@ -87,16 +100,32 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
-
-      - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1.2
-        id: cache-virtualenv
+        uses: actions/setup-python@v4
         with:
-          custom_cache_key_element: v1.2
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
 
       - name: Static type checker
-        run: mypy --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
+        run: |
+          python -m pip install types-setuptools
+          poetry run mypy --install-types --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
 
   test:
     needs: [ linters-black, linters-mypy ]
@@ -109,18 +138,30 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: virtualenv cache
-        uses: syphar/restore-virtualenv@v1.2
-        id: cache-virtualenv
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
         with:
-          custom_cache_key_element: v1.2
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
 
       - name: Run pytest
-        run: pytest tests/
+        run: poetry run pytest tests/
 
       - name: Submit coverage report
         if: github.ref == 'refs/heads/master'
