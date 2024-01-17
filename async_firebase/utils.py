@@ -46,17 +46,17 @@ def join_url(
     """
     url = base
     if parts:
-        url = '/'.join([base.strip('/'), quote('/'.join(map(lambda x: str(x).strip('/'), parts)))])
+        url = "/".join([base.strip("/"), quote("/".join(map(lambda x: str(x).strip("/"), parts)))])
 
     # trailing slash can be important
     if trailing_slash:
-        url = f'{url}/'
+        url = f"{url}/"
     # as well as a leading slash
     if leading_slash:
-        url = f'/{url}'
+        url = f"/{url}"
 
     if params:
-        url = urljoin(url, '?{}'.format(urlencode(params)))
+        url = urljoin(url, "?{}".format(urlencode(params)))
 
     return url
 
