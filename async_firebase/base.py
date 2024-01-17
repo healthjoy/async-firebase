@@ -74,7 +74,7 @@ class AsyncClientBase:
 
         if self._http_client is None:
             self._http_client = _create_http_client()
-        elif self._client.is_closed:
+        elif self._http_client.is_closed:
             self._http_client = _create_http_client()
 
         return self._http_client
