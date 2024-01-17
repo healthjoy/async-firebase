@@ -9,25 +9,16 @@ import typing as t
 import uuid
 from datetime import datetime, timedelta
 from email.mime.nonmultipart import MIMENonMultipart
+from importlib.metadata import version
 from pathlib import PurePath
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 import httpx
 from google.oauth2 import service_account  # type: ignore
 
-import pkg_resources  # type: ignore
-from async_firebase._config import (
-    DEFAULT_REQUEST_LIMITS,
-    DEFAULT_REQUEST_TIMEOUT,
-    RequestLimits,
-    RequestTimeout,
-)
+from async_firebase._config import DEFAULT_REQUEST_LIMITS, DEFAULT_REQUEST_TIMEOUT, RequestLimits, RequestTimeout
 from async_firebase.messages import FCMBatchResponse, FCMResponse
-from async_firebase.utils import (
-    FCMBatchResponseHandler,
-    FCMResponseHandler,
-    serialize_mime_message,
-)
+from async_firebase.utils import FCMBatchResponseHandler, FCMResponseHandler, join_url, serialize_mime_message
 
 
 class AsyncClientBase:
@@ -71,6 +62,16 @@ class AsyncClientBase:
 
         self._request_timeout = request_timeout
         self._request_limits = request_limits
+        self._http_client: t.Optional[httpx.AsyncClient] = None
+
+    @property
+    def _client(self) -> httpx.AsyncClient:
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(**self._request_timeout.__dict__),
+                limits=httpx.Limits(**self._request_limits.__dict__),
+            )
+        return self._http_client
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
         """
@@ -109,9 +110,8 @@ class AsyncClientBase:
             }
         ).encode("utf-8")
 
-        async with httpx.AsyncClient() as client:
-            response: httpx.Response = await client.post(self.TOKEN_URL, data=data, headers=headers)
-            response_data = response.json()
+        response: httpx.Response = await self._client.post(self.TOKEN_URL, content=data, headers=headers)
+        response_data = response.json()
 
         self._credentials.expiry = datetime.utcnow() + timedelta(seconds=response_data["expires_in"])
         self._credentials.token = response_data["access_token"]
@@ -159,7 +159,7 @@ class AsyncClientBase:
             "Content-Type": "application/json; UTF-8",
             "X-Request-Id": self.get_request_id(),
             "X-GOOG-API-FORMAT-VERSION": "2",
-            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
+            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(version("async-firebase")),
         }
 
     async def send_request(
@@ -180,34 +180,30 @@ class AsyncClientBase:
         :param content: request content
         :return: HTTP response
         """
-        async with httpx.AsyncClient(
-            base_url=self.BASE_URL,
-            timeout=httpx.Timeout(**self._request_timeout.__dict__),
-            limits=httpx.Limits(**self._request_limits.__dict__),
-        ) as client:
-            logging.debug(
-                "Requesting POST %s, payload: %s, content: %s, headers: %s",
-                urljoin(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)),
-                json_payload,
-                content,
-                headers,
+        url = join_url(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id), uri)
+        logging.debug(
+            "Requesting POST %s, payload: %s, content: %s, headers: %s",
+            url,
+            json_payload,
+            content,
+            headers,
+        )
+        try:
+            raw_fcm_response: httpx.Response = await self._client.post(
+                url,
+                json=json_payload,
+                headers=headers or await self.prepare_headers(),
+                content=content,
             )
-            try:
-                raw_fcm_response: httpx.Response = await client.post(
-                    uri,
-                    json=json_payload,
-                    headers=headers or await self.prepare_headers(),
-                    content=content,
-                )
-                raw_fcm_response.raise_for_status()
-            except httpx.HTTPError as exc:
-                response = response_handler.handle_error(exc)
-            else:
-                logging.debug(
-                    "Response Code: %s, Time spent to make a request: %s",
-                    raw_fcm_response.status_code,
-                    raw_fcm_response.elapsed,
-                )
-                response = response_handler.handle_response(raw_fcm_response)
+            raw_fcm_response.raise_for_status()
+        except httpx.HTTPError as exc:
+            response = response_handler.handle_error(exc)
+        else:
+            logging.debug(
+                "Response Code: %s, Time spent to make a request: %s",
+                raw_fcm_response.status_code,
+                raw_fcm_response.elapsed,
+            )
+            response = response_handler.handle_response(raw_fcm_response)
 
         return response

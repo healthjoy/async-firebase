@@ -15,11 +15,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from async_firebase.base import (  # noqa: F401
-    AsyncClientBase,
-    RequestLimits,
-    RequestTimeout,
-)
+from async_firebase.base import AsyncClientBase, RequestLimits, RequestTimeout  # noqa: F401
 from async_firebase.encoders import aps_encoder
 from async_firebase.messages import (
     AndroidConfig,
@@ -44,6 +40,7 @@ from async_firebase.utils import (
     cleanup_firebase_message,
     serialize_mime_message,
 )
+
 
 DEFAULT_TTL = 604800
 BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
@@ -74,7 +71,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         has_apns_config = True if apns_config and apns_config.payload else False
         if has_apns_config:
             # avoid mutation of active message
-            message.apns = replace(message.apns)
+            message.apns = replace(message.apns)  # type: ignore
             message.apns.payload = aps_encoder(apns_config.payload.aps)  # type: ignore
 
         push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
