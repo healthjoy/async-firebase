@@ -66,17 +66,11 @@ class AsyncClientBase:
 
     @property
     def _client(self) -> httpx.AsyncClient:
-        def _create_http_client() -> httpx.AsyncClient:
-            return httpx.AsyncClient(
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(**self._request_timeout.__dict__),
                 limits=httpx.Limits(**self._request_limits.__dict__),
             )
-
-        if self._http_client is None:
-            self._http_client = _create_http_client()
-        elif self._http_client.is_closed:
-            self._http_client = _create_http_client()
-
         return self._http_client
 
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
