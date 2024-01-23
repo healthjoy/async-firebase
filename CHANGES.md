@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.4.1
+* [FIX] The batch URL is composed incorrectly, which causes an HTTP 404 response to be received.
+
 ## 3.4.0
 * Refactored  ``async_firebase.base.AsyncClientBase`` to take advantage of connection pool. So the HTTP client will be created once during class ``async_firebase.client.AsyncFirebaseClient`` instantiation.
 

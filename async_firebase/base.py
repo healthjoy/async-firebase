@@ -180,7 +180,7 @@ class AsyncClientBase:
         :param content: request content
         :return: HTTP response
         """
-        url = join_url(self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id), uri)
+        url = join_url(self.BASE_URL, uri)
         logging.debug(
             "Requesting POST %s, payload: %s, content: %s, headers: %s",
             url,
