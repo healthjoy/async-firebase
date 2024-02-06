@@ -32,6 +32,7 @@ python = ">=3.7,<3.13"
 
 google-auth = "~2.6.0"
 httpx = ">=0.23.0,<1.0.0"
+importlib-metadata = {version = "<7.0.1", python = "3.7"}
 
 [tool.poetry.dev-dependencies]
 pre-commit = "~2.21"
