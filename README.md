@@ -23,6 +23,7 @@
   * Dry-run mode for testing purpose
 
 ## Installation
+To install `async-firebase`, simply execute the following command in a terminal:
 ```shell script
 $ pip install async-firebase
 ```
