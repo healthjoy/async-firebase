@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.5.0
+* [BREAKING] Drop support of **Python 3.7**
+
 ## 3.4.1
 * [FIX] The batch URL is composed incorrectly, which causes an HTTP 404 response to be received.
 
