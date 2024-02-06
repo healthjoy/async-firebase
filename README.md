@@ -9,7 +9,7 @@
 
 
   * Free software: MIT license
-  * Requires: Python 3.7+
+  * Requires: Python 3.8+
 
 ## Features
 
