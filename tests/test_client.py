@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime
+from unittest import mock
 
 import pkg_resources
 import pytest
@@ -440,6 +441,32 @@ async def test_send_each_returns_correct_data(
     failed_fcm_response = fcm_batch_response.responses[2]
     assert failed_fcm_response.message_id is None
     assert isinstance(failed_fcm_response.exception, InternalError)
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_send_each_for_multicast(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list,
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    send_each_mock = mock.AsyncMock()
+    fake_async_fcm_client_w_creds.send_each = send_each_mock
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    await fake_async_fcm_client_w_creds.send_each_for_multicast(
+        MulticastMessage(apns=apns_config, tokens=fake_multi_device_tokens),
+    )
+    send_each_argument = send_each_mock.call_args[0][0]
+    assert isinstance(send_each_argument, list)
+    for message in send_each_argument:
+        assert isinstance(message, Message)
+        assert message.apns == apns_config
+        assert message.token is not None
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
