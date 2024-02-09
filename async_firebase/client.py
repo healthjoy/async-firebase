@@ -9,6 +9,7 @@ import collections
 import json
 import logging
 import typing as t
+import warnings
 from dataclasses import replace
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
@@ -414,6 +415,9 @@ class AsyncFirebaseClient(AsyncClientBase):
 
         :return: instance of ``messages.FCMBatchResponse``
         """
+        warnings.warn(
+            "send_multicast is going to be deprecated, please use send_each_for_multicast instead", DeprecationWarning
+        )
 
         if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
             raise ValueError(
@@ -449,6 +453,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             without actually delivering the message. Default to ``False``.
         :returns: instance of ``messages.FCMBatchResponse``
         """
+        warnings.warn("send_all is going to be deprecated, please use send_each instead", DeprecationWarning)
 
         if len(messages) > BATCH_MAX_MESSAGES:
             raise ValueError(f"A list of messages must not contain more than {BATCH_MAX_MESSAGES} elements")
