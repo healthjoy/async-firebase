@@ -1,4 +1,8 @@
 # Changelog
+## 3.6.0
+* Introduce send_each and send_each_for_multicast methods
+* Add deprecation warnings to send_all and send_multicast methods, because they use the API that
+  Google may deprecate soon. The newly introduced methods should be safe to use.
 
 ## 3.5.0
 * [BREAKING] Drop support of **Python 3.7**
