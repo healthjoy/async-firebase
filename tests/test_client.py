@@ -8,6 +8,7 @@ from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
 from async_firebase.client import AsyncFirebaseClient
+from async_firebase.errors import InternalError
 from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
@@ -403,11 +404,12 @@ async def test_send_each_returns_correct_data(
         "0:1612788010922733%7606eb247606eb35",
         "0:1612788010922733%7606eb247606eb46",
     ]
-    for message_id in response_message_ids:
+    for message_id in (response_message_ids[0], response_message_ids[1]):
         httpx_mock.add_response(
             status_code=200,
             json={"name": f"projects/{creds.project_id}/messages/{message_id}"},
         )
+    httpx_mock.add_response(status_code=500)
     apns_config: APNSConfig = fake_async_fcm_client_w_creds.build_apns_config(
         priority="normal",
         apns_topic="Your bucket has been updated",
@@ -422,11 +424,22 @@ async def test_send_each_returns_correct_data(
         Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
     ]
     fcm_batch_response = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert fcm_batch_response.success_count == 2
+    assert fcm_batch_response.failure_count == 1
     assert isinstance(fcm_batch_response, FCMBatchResponse)
-    for fcm_response, response_message_id in zip(fcm_batch_response.responses, response_message_ids):
+    for fcm_response in fcm_batch_response.responses:
         assert isinstance(fcm_response, FCMResponse)
+
+    # check successful responses
+    for fcm_response, response_message_id in list(zip(fcm_batch_response.responses, response_message_ids))[1:2]:
         assert fcm_response.message_id == f"projects/{creds.project_id}/messages/{response_message_id}"
         assert fcm_response.exception is None
+
+    # check failed response
+    failed_fcm_response = fcm_batch_response.responses[2]
+    assert failed_fcm_response.message_id is None
+    assert isinstance(failed_fcm_response.exception, InternalError)
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
