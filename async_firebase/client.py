@@ -4,9 +4,12 @@ The module houses client to communicate with FCM - Firebase Cloud Messaging (And
 Documentation for google-auth package https://google-auth.readthedocs.io/en/latest/user-guide.html that is used
 to authorize request which is being made to Firebase.
 """
+import asyncio
+import collections
 import json
 import logging
 import typing as t
+import warnings
 from dataclasses import replace
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
@@ -412,6 +415,9 @@ class AsyncFirebaseClient(AsyncClientBase):
 
         :return: instance of ``messages.FCMBatchResponse``
         """
+        warnings.warn(
+            "send_multicast is going to be deprecated, please use send_each_for_multicast instead", DeprecationWarning
+        )
 
         if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
             raise ValueError(
@@ -447,6 +453,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             without actually delivering the message. Default to ``False``.
         :returns: instance of ``messages.FCMBatchResponse``
         """
+        warnings.warn("send_all is going to be deprecated, please use send_each instead", DeprecationWarning)
 
         if len(messages) > BATCH_MAX_MESSAGES:
             raise ValueError(f"A list of messages must not contain more than {BATCH_MAX_MESSAGES} elements")
@@ -489,3 +496,54 @@ class AsyncFirebaseClient(AsyncClientBase):
         if not isinstance(batch_response, FCMBatchResponse):
             raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
         return batch_response
+
+    async def send_each(
+        self,
+        messages: t.Union[t.List[Message], t.Tuple[Message]],
+        *,
+        dry_run: bool = False,
+    ) -> FCMBatchResponse:
+        if len(messages) > BATCH_MAX_MESSAGES:
+            raise ValueError(f"Can not send more than {BATCH_MAX_MESSAGES} messages in a single batch")
+
+        push_notifications = [
+            self.assemble_push_notification(apns_config=message.apns, dry_run=dry_run, message=message)
+            for message in messages
+        ]
+
+        request_tasks: t.Collection[collections.abc.Awaitable] = [
+            self.send_request(
+                uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
+                json_payload=push_notification,
+                response_handler=FCMResponseHandler(),
+            )
+            for push_notification in push_notifications
+        ]
+        fcm_responses = await asyncio.gather(*request_tasks)
+        return FCMBatchResponse(responses=fcm_responses)
+
+    async def send_each_for_multicast(
+        self,
+        multicast_message: MulticastMessage,
+        *,
+        dry_run: bool = False,
+    ) -> FCMBatchResponse:
+        if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
+            raise ValueError(
+                f"A single ``messages.MulticastMessage`` may contain up to {MULTICAST_MESSAGE_MAX_DEVICE_TOKENS} "
+                "device tokens."
+            )
+
+        messages = [
+            Message(
+                token=token,
+                data=multicast_message.data,
+                notification=multicast_message.notification,
+                android=multicast_message.android,
+                webpush=multicast_message.webpush,
+                apns=multicast_message.apns,
+            )
+            for token in multicast_message.tokens
+        ]
+
+        return await self.send_each(messages, dry_run=dry_run)

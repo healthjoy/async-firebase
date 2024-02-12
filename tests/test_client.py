@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime
+from unittest import mock
 
 import pkg_resources
 import pytest
@@ -8,6 +9,7 @@ from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
 from async_firebase.client import AsyncFirebaseClient
+from async_firebase.errors import InternalError
 from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
@@ -224,7 +226,7 @@ async def test_send_unauthenticated(fake_async_fcm_client_w_creds, httpx_mock: H
     assert fcm_response.exception.cause.response.status_code == 401
 
 
-async def test_send_data_has_not_provided(fake_async_fcm_client_w_creds):
+async def test_send_data_has_not_been_provided(fake_async_fcm_client_w_creds):
     message = Message(token="device_id:device_token")
     with pytest.raises(ValueError):
         await fake_async_fcm_client_w_creds.send(message)
@@ -331,6 +333,140 @@ async def test_send_all(fake_async_fcm_client_w_creds, fake_multi_device_tokens:
     assert response.responses[0].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
     assert response.responses[1].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"
     assert response.responses[2].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_send_each_makes_proper_http_calls(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    response_message_ids = [
+        "0:1612788010922733%7606eb247606eb24",
+        "0:1612788010922733%7606eb247606eb35",
+        "0:1612788010922733%7606eb247606eb46",
+    ]
+    for message_id in response_message_ids:
+        httpx_mock.add_response(
+            status_code=200,
+            json={"name": f"projects/{creds.project_id}/messages/{message_id}"},
+        )
+    apns_config: APNSConfig = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="Your bucket has been updated",
+        collapse_key="BUCKET_UPDATED",
+        badge=1,
+        category="CATEGORY_BUCKET_UPDATED",
+        custom_data={"foo": "bar"},
+        mutable_content=True,
+        content_available=True,
+    )
+    messages = [
+        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
+    ]
+    await fake_async_fcm_client_w_creds.send_each(messages)
+    request_payloads = [json.loads(request.read()) for request in httpx_mock.get_requests()]
+    expected_request_payloads = [
+        {
+            "message": {
+                "apns": {
+                    "headers": apns_config.headers,
+                    "payload": {
+                        "aps": {
+                            "badge": 1,
+                            "category": "CATEGORY_BUCKET_UPDATED",
+                            "content-available": True,
+                            "mutable-content": True,
+                        },
+                        "foo": "bar",
+                    },
+                },
+                "token": fake_device_token,
+            },
+            "validate_only": False,
+        } for fake_device_token in fake_multi_device_tokens
+    ]
+    for payload, expected_payload in zip(request_payloads, expected_request_payloads):
+        assert payload == expected_payload
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_send_each_returns_correct_data(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    response_message_ids = [
+        "0:1612788010922733%7606eb247606eb24",
+        "0:1612788010922733%7606eb247606eb35",
+        "0:1612788010922733%7606eb247606eb46",
+    ]
+    for message_id in (response_message_ids[0], response_message_ids[1]):
+        httpx_mock.add_response(
+            status_code=200,
+            json={"name": f"projects/{creds.project_id}/messages/{message_id}"},
+        )
+    httpx_mock.add_response(status_code=500)
+    apns_config: APNSConfig = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="Your bucket has been updated",
+        collapse_key="BUCKET_UPDATED",
+        badge=1,
+        category="CATEGORY_BUCKET_UPDATED",
+        custom_data={"foo": "bar"},
+        mutable_content=True,
+        content_available=True,
+    )
+    messages = [
+        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
+    ]
+    fcm_batch_response = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert fcm_batch_response.success_count == 2
+    assert fcm_batch_response.failure_count == 1
+    assert isinstance(fcm_batch_response, FCMBatchResponse)
+    for fcm_response in fcm_batch_response.responses:
+        assert isinstance(fcm_response, FCMResponse)
+
+    # check successful responses
+    for fcm_response, response_message_id in list(zip(fcm_batch_response.responses, response_message_ids))[1:2]:
+        assert fcm_response.message_id == f"projects/{creds.project_id}/messages/{response_message_id}"
+        assert fcm_response.exception is None
+
+    # check failed response
+    failed_fcm_response = fcm_batch_response.responses[2]
+    assert failed_fcm_response.message_id is None
+    assert isinstance(failed_fcm_response.exception, InternalError)
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_send_each_for_multicast(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list,
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    send_each_mock = mock.AsyncMock()
+    fake_async_fcm_client_w_creds.send_each = send_each_mock
+    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
+        priority="normal",
+        apns_topic="test-push",
+        collapse_key="push",
+        badge=0,
+        category="test-category",
+        custom_data={"foo": "bar"},
+    )
+    await fake_async_fcm_client_w_creds.send_each_for_multicast(
+        MulticastMessage(apns=apns_config, tokens=fake_multi_device_tokens),
+    )
+    send_each_argument = send_each_mock.call_args[0][0]
+    assert isinstance(send_each_argument, list)
+    for message in send_each_argument:
+        assert isinstance(message, Message)
+        assert message.apns == apns_config
+        assert message.token is not None
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
