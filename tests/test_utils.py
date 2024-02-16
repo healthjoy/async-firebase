@@ -266,6 +266,14 @@ def test_cleanup_firebase_message(firebase_message, exp_result):
             False,
             "/base_path/path_1?q=test",
         ),
+        (
+            "http://base",
+            ["message:send"],
+            None,
+            False,
+            False,
+            "http://base/message:send",
+        ),
     ),
 )
 def test_join_url_common_flows(base, parts, params, leading_slash, trailing_slash, exp_result):
