@@ -1,4 +1,7 @@
 # Changelog
+## 3.6.1
+* Remove unintended quoting of the column char in the API URLs
+
 ## 3.6.0
 * Introduce send_each and send_each_for_multicast methods
 * Add deprecation warnings to send_all and send_multicast methods, because they use the API that
