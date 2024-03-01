@@ -1,4 +1,11 @@
 # Changelog
+## 3.6.2
+* Resolve a couple of security concerns by updating `cryptography` package to `42.0.4`.
+  * [High] cryptography NULL pointer dereference with pkcs12.serialize_key_and_certificates when called with a non-matching certificate and private key and an hmac_hash override
+  * [High] Python Cryptography package vulnerable to Bleichenbacher timing oracle attack
+  * [Moderate] Null pointer dereference in PKCS12 parsing
+  * [Moderate] cryptography vulnerable to NULL-dereference when loading PKCS7 certificates
+
 ## 3.6.1
 * Remove unintended quoting of the column char in the API URLs
 
