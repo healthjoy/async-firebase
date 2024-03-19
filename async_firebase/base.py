@@ -39,7 +39,7 @@ class AsyncClientBase:
         "https://www.googleapis.com/auth/cloud-platform",
     ]
     IID_URL = "https://iid.googleapis.com"
-    IID_HEADERS = {'access_token_auth': 'true'}
+    IID_HEADERS = {"access_token_auth": "true"}
     TOPIC_ADD_ACTION = "iid/v1:batchAdd"
     TOPIC_REMOVE_ACTION = "iid/v1:batchRemove"
 
