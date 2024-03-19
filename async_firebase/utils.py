@@ -24,7 +24,11 @@ from async_firebase.errors import (
     UnknownError,
     UnregisteredError,
 )
-from async_firebase.messages import FCMBatchResponse, FCMResponse
+from async_firebase.messages import (
+    FCMBatchResponse,
+    FCMResponse,
+    TopicManagementResponse,
+)
 
 
 def join_url(
@@ -355,3 +359,20 @@ class FCMBatchResponseHandler(FCMResponseHandlerBase[FCMBatchResponse]):
             responses.append(resp)
 
         return responses
+
+
+class TopicManagementResponseHandler(FCMResponseHandlerBase[TopicManagementResponse]):
+    def handle_error(self, error: httpx.HTTPError) -> TopicManagementResponse:
+        exc = (
+            (isinstance(error, httpx.HTTPStatusError) and self._handle_fcm_error(error))
+            or (isinstance(error, httpx.HTTPError) and self._handle_request_error(error))
+            or AsyncFirebaseError(
+                code=FcmErrorCode.UNKNOWN.value,
+                message="Unexpected error has happened when hitting the FCM API",
+                cause=error,
+            )
+        )
+        return TopicManagementResponse(exception=exc)
+
+    def handle_response(self, response: httpx.Response) -> TopicManagementResponse:
+        return TopicManagementResponse(response)
