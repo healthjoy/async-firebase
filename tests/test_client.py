@@ -742,7 +742,6 @@ def test_build_webpush_config(fake_async_fcm_client_w_creds):
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_subscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
         status_code=200,
         json={"results": [{}, {}, {}]},
@@ -759,7 +758,6 @@ async def test_subscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_devi
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_subscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    creds = fake_async_fcm_client_w_creds._credentials
 
     device_tokens = [*fake_multi_device_tokens, "incorrect"]
     httpx_mock.add_response(
@@ -798,7 +796,6 @@ async def test_unsubscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_de
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_unsubscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    creds = fake_async_fcm_client_w_creds._credentials
 
     device_tokens = [*fake_multi_device_tokens, "incorrect"]
     httpx_mock.add_response(
