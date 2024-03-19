@@ -289,6 +289,7 @@ class FcmOptions:
     Arguments:
         analytics_label: Label associated with the message's analytics data.
     """
+
     analytics_label: str
 
 
@@ -432,9 +433,7 @@ class ErrorInfo:
 class TopicManagementResponse:
     """The response received from a topic management operation."""
 
-    def __init__(
-        self, resp: t.Optional[httpx.Response] = None, exception: t.Optional[AsyncFirebaseError] = None
-    ):
+    def __init__(self, resp: t.Optional[httpx.Response] = None, exception: t.Optional[AsyncFirebaseError] = None):
         self.exception = exception
         self._success_count = 0
         self._failure_count = 0

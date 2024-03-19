@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from email.mime.nonmultipart import MIMENonMultipart
 from importlib.metadata import version
 from pathlib import PurePath
-from typing import Any, Coroutine
 from urllib.parse import urlencode
 
 import httpx
@@ -20,11 +19,11 @@ from google.oauth2 import service_account  # type: ignore
 from async_firebase._config import DEFAULT_REQUEST_LIMITS, DEFAULT_REQUEST_TIMEOUT, RequestLimits, RequestTimeout
 from async_firebase.messages import FCMBatchResponse, FCMResponse, TopicManagementResponse
 from async_firebase.utils import (
-    FCMBatchResponseHandler, 
+    FCMBatchResponseHandler,
     FCMResponseHandler,
     TopicManagementResponseHandler,
-    join_url, 
-    serialize_mime_message
+    join_url,
+    serialize_mime_message,
 )
 
 
@@ -172,7 +171,7 @@ class AsyncClientBase:
             "X-GOOG-API-FORMAT-VERSION": "2",
             "X-FIREBASE-CLIENT": "async-firebase/{0}".format(version("async-firebase")),
         }
-    
+
     async def _send_request(
         self,
         url: str,
@@ -227,12 +226,8 @@ class AsyncClientBase:
         :return: HTTP response
         """
         url = join_url(self.BASE_URL, uri)
-        return await self._send_request( # type: ignore
-            url=url,
-            response_handler=response_handler,
-            json_payload=json_payload,
-            headers=headers,
-            content=content
+        return await self._send_request(  # type: ignore
+            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
         )
 
     async def send_iid_request(
@@ -256,10 +251,6 @@ class AsyncClientBase:
         url = join_url(self.IID_URL, uri)
         headers = headers or await self.prepare_headers()
         headers.update(self.IID_HEADERS)
-        return await self._send_request( # type: ignore
-            url=url,
-            response_handler=response_handler,
-            json_payload=json_payload,
-            headers=headers,
-            content=content
+        return await self._send_request(  # type: ignore
+            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
         )

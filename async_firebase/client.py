@@ -551,10 +551,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         return await self.send_each(messages, dry_run=dry_run)
 
     async def _make_topic_management_request(
-        self,
-        device_tokens: t.List[str],
-        topic_name: str,
-        action: str
+        self, device_tokens: t.List[str], topic_name: str, action: str
     ) -> TopicManagementResponse:
         payload = {
             "to": f"/topics/{topic_name}",
@@ -567,11 +564,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         )
         return response
 
-    async def subscribe_devices_to_topic(
-        self,
-        device_tokens: t.List[str],
-        topic_name: str
-    ) -> TopicManagementResponse:
+    async def subscribe_devices_to_topic(self, device_tokens: t.List[str], topic_name: str) -> TopicManagementResponse:
         """
         Subscribes devices to the topic.
 
@@ -580,15 +573,11 @@ class AsyncFirebaseClient(AsyncClientBase):
         :returns: Instance of messages.TopicManagementResponse.
         """
         return await self._make_topic_management_request(
-            device_tokens=device_tokens,
-            topic_name=topic_name,
-            action=self.TOPIC_ADD_ACTION
+            device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_ADD_ACTION
         )
 
     async def unsubscribe_devices_from_topic(
-        self,
-        device_tokens: t.List[str],
-        topic_name: str
+        self, device_tokens: t.List[str], topic_name: str
     ) -> TopicManagementResponse:
         """
         Unsubscribes devices from the topic.
@@ -598,7 +587,5 @@ class AsyncFirebaseClient(AsyncClientBase):
         :returns: Instance of messages.TopicManagementResponse.
         """
         return await self._make_topic_management_request(
-            device_tokens=device_tokens,
-            topic_name=topic_name,
-            action=self.TOPIC_REMOVE_ACTION
+            device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_REMOVE_ACTION
         )
