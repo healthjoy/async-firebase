@@ -438,7 +438,7 @@ class TopicManagementResponse:
         self.exception = exception
         self._success_count = 0
         self._failure_count = 0
-        self._errors = []
+        self._errors: t.List[ErrorInfo] = []
 
         if resp:
             self._handle_response(resp)

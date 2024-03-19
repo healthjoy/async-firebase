@@ -162,7 +162,7 @@ def serialize_mime_message(
     return fp.getvalue()
 
 
-FCMResponseType = t.TypeVar("FCMResponseType", FCMResponse, FCMBatchResponse)
+FCMResponseType = t.TypeVar("FCMResponseType", FCMResponse, FCMBatchResponse, TopicManagementResponse)
 
 
 class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):

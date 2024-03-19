@@ -227,7 +227,7 @@ class AsyncClientBase:
         :return: HTTP response
         """
         url = join_url(self.BASE_URL, uri)
-        return await self._send_request(
+        return await self._send_request( # type: ignore
             url=url,
             response_handler=response_handler,
             json_payload=json_payload,
@@ -256,7 +256,7 @@ class AsyncClientBase:
         url = join_url(self.IID_URL, uri)
         headers = headers or await self.prepare_headers()
         headers.update(self.IID_HEADERS)
-        return await self._send_request(
+        return await self._send_request( # type: ignore
             url=url,
             response_handler=response_handler,
             json_payload=json_payload,
