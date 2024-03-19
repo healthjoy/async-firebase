@@ -274,6 +274,14 @@ def test_cleanup_firebase_message(firebase_message, exp_result):
             False,
             "http://base/message:send",
         ),
+        (
+            "https://fcm.googleapis.com",
+            ["/v1/projects/my-project", "messages:send"],
+            None,
+            False,
+            False,
+            "https://fcm.googleapis.com/v1/projects/my-project/messages:send",
+        ),
     ),
 )
 def test_join_url_common_flows(base, parts, params, leading_slash, trailing_slash, exp_result):
