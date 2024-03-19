@@ -25,7 +25,7 @@ from async_firebase.messages import (
     WebpushNotification,
     WebpushFCMOptions,
     MulticastMessage,
-    ErrorInfo,
+    TopicManagementErrorInfo,
 )
 from async_firebase.utils import FcmErrorCode
 
@@ -772,7 +772,7 @@ async def test_subscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds, 
     assert response.failure_count == 1
     assert len(response.errors) == 1
 
-    assert isinstance(response.errors[0], ErrorInfo)
+    assert isinstance(response.errors[0], TopicManagementErrorInfo)
     assert response.errors[0].index == 3
     assert response.errors[0].reason == "INVALID_ARGUMENT"
 
@@ -810,7 +810,7 @@ async def test_unsubscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds
     assert response.failure_count == 1
     assert len(response.errors) == 1
 
-    assert isinstance(response.errors[0], ErrorInfo)
+    assert isinstance(response.errors[0], TopicManagementErrorInfo)
     assert response.errors[0].index == 3
     assert response.errors[0].reason == "INVALID_ARGUMENT"
 

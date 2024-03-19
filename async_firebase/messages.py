@@ -412,7 +412,7 @@ class FCMBatchResponse:
         return len(self.responses) - self.success_count
 
 
-class ErrorInfo:
+class TopicManagementErrorInfo:
     """An error encountered when performing a topic management operation."""
 
     def __init__(self, index, reason):
@@ -437,7 +437,7 @@ class TopicManagementResponse:
         self.exception = exception
         self._success_count = 0
         self._failure_count = 0
-        self._errors: t.List[ErrorInfo] = []
+        self._errors: t.List[TopicManagementErrorInfo] = []
 
         if resp:
             self._handle_response(resp)
@@ -451,7 +451,7 @@ class TopicManagementResponse:
         for index, result in enumerate(results):
             if "error" in result:
                 self._failure_count += 1
-                self._errors.append(ErrorInfo(index, result["error"]))
+                self._errors.append(TopicManagementErrorInfo(index, result["error"]))
             else:
                 self._success_count += 1
 
