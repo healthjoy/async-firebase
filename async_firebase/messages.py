@@ -336,6 +336,7 @@ class MulticastMessage:
     android: an instance of ``messages.AndroidConfig`` (optional).
     webpush: an instance of ``messages.WebpushConfig`` (optional).
     apns: an instance of ``messages.ApnsConfig`` (optional).
+    fcm_options: platform independent options for features provided by the FCM SDKs.
     """
 
     tokens: t.List[str]
@@ -344,6 +345,7 @@ class MulticastMessage:
     android: t.Optional[AndroidConfig] = field(default=None)
     webpush: t.Optional[WebpushConfig] = field(default=None)
     apns: t.Optional[APNSConfig] = field(default=None)
+    fcm_options: t.Optional[FcmOptions] = None
 
 
 @dataclass

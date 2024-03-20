@@ -435,6 +435,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 android=multicast_message.android,
                 webpush=multicast_message.webpush,
                 apns=multicast_message.apns,
+                fcm_options=multicast_message.fcm_options,
             )
             for token in multicast_message.tokens
         ]
@@ -544,6 +545,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 android=multicast_message.android,
                 webpush=multicast_message.webpush,
                 apns=multicast_message.apns,
+                fcm_options=multicast_message.fcm_options,
             )
             for token in multicast_message.tokens
         ]
