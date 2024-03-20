@@ -321,7 +321,7 @@ class Message:
     apns: t.Optional[APNSConfig] = field(default=None)
     topic: t.Optional[str] = None
     condition: t.Optional[str] = None
-    fcm_options: t.Optional[FcmOptions] = None
+    fcm_options: t.Optional[FcmOptions] = field(default=None)
 
 
 @dataclass
@@ -345,7 +345,7 @@ class MulticastMessage:
     android: t.Optional[AndroidConfig] = field(default=None)
     webpush: t.Optional[WebpushConfig] = field(default=None)
     apns: t.Optional[APNSConfig] = field(default=None)
-    fcm_options: t.Optional[FcmOptions] = None
+    fcm_options: t.Optional[FcmOptions] = field(default=None)
 
 
 @dataclass
