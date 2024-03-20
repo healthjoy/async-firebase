@@ -21,6 +21,7 @@
   * Set priority for notifications
   * Set collapse-key for notifications
   * Dry-run mode for testing purpose
+  * Topic Management
 
 ## Installation
 To install `async-firebase`, simply execute the following command in a terminal:
@@ -268,6 +269,51 @@ async def main():
     message = Message(apns=apns_config, token=device_token)
     response = await client.send(message)
     print(response.success)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Topic Management
+You can subscribe and unsubscribe client app instances in bulk approach by passing a list of registration tokens to the subscription method to subscribe the corresponding devices to a topic:
+```python3
+import asyncio
+
+from async_firebase import AsyncFirebaseClient
+
+
+async def main():
+    device_tokens: list[str] = ["...", "..."]
+
+    client = AsyncFirebaseClient()
+    client.creds_from_service_account_info({...})
+    response = await client.subscribe_devices_to_topic(
+        device_tokens=device_tokens, topic_name="some-topic"
+    )
+    print(response)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+To unsubscribe devices from a topic by passing registration tokens to the appropriate method:
+```python3
+import asyncio
+
+from async_firebase import AsyncFirebaseClient
+
+
+async def main():
+    device_tokens: list[str] = ["...", "..."]
+
+    client = AsyncFirebaseClient()
+    client.creds_from_service_account_info({...})
+    response = await client.unsubscribe_devices_from_topic(
+        device_tokens=device_tokens, topic_name="some-topic"
+    )
+    print(response)
 
 
 if __name__ == "__main__":
