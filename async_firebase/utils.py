@@ -46,7 +46,7 @@ def join_url(
     """
     url = base
     if parts:
-        quoted_and_stripped_parts = [quote(str(part).strip("/"), safe=":") for part in parts]
+        quoted_and_stripped_parts = [quote(str(part).strip("/"), safe=": /") for part in parts]
         url = "/".join([base.strip("/"), *quoted_and_stripped_parts])
 
     # trailing slash can be important

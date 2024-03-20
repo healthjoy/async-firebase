@@ -1,4 +1,7 @@
 # Changelog
+## 3.6.3
+* [FIX] The ``join_url`` util has been tuned to encode the URL properly when the path is present. That led to the invalid URL being built.
+
 ## 3.6.2
 * Resolve a couple of security concerns by updating `cryptography` package to `42.0.4`.
   * [High] cryptography NULL pointer dereference with pkcs12.serialize_key_and_certificates when called with a non-matching certificate and private key and an hmac_hash override
