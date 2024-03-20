@@ -17,8 +17,14 @@ import httpx
 from google.oauth2 import service_account  # type: ignore
 
 from async_firebase._config import DEFAULT_REQUEST_LIMITS, DEFAULT_REQUEST_TIMEOUT, RequestLimits, RequestTimeout
-from async_firebase.messages import FCMBatchResponse, FCMResponse
-from async_firebase.utils import FCMBatchResponseHandler, FCMResponseHandler, join_url, serialize_mime_message
+from async_firebase.messages import FCMBatchResponse, FCMResponse, TopicManagementResponse
+from async_firebase.utils import (
+    FCMBatchResponseHandler,
+    FCMResponseHandler,
+    TopicManagementResponseHandler,
+    join_url,
+    serialize_mime_message,
+)
 
 
 class AsyncClientBase:
@@ -32,6 +38,10 @@ class AsyncClientBase:
     SCOPES: t.List[str] = [
         "https://www.googleapis.com/auth/cloud-platform",
     ]
+    IID_URL = "https://iid.googleapis.com"
+    IID_HEADERS = {"access_token_auth": "true"}
+    TOPIC_ADD_ACTION = "iid/v1:batchAdd"
+    TOPIC_REMOVE_ACTION = "iid/v1:batchRemove"
 
     def __init__(
         self,
@@ -162,25 +172,14 @@ class AsyncClientBase:
             "X-FIREBASE-CLIENT": "async-firebase/{0}".format(version("async-firebase")),
         }
 
-    async def send_request(
+    async def _send_request(
         self,
-        uri: str,
-        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler],
+        url: str,
+        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler, TopicManagementResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FCMResponse, FCMBatchResponse]:
-        """
-        Sends an HTTP call using the ``httpx`` library.
-
-        :param uri: URI to be requested.
-        :param response_handler: the model to handle response.
-        :param json_payload: request JSON payload
-        :param headers: request headers.
-        :param content: request content
-        :return: HTTP response
-        """
-        url = join_url(self.BASE_URL, uri)
+    ) -> t.Union[FCMResponse, FCMBatchResponse, TopicManagementResponse]:
         logging.debug(
             "Requesting POST %s, payload: %s, content: %s, headers: %s",
             url,
@@ -207,3 +206,51 @@ class AsyncClientBase:
             response = response_handler.handle_response(raw_fcm_response)
 
         return response
+
+    async def send_request(
+        self,
+        uri: str,
+        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler],
+        json_payload: t.Optional[t.Dict[str, t.Any]] = None,
+        headers: t.Optional[t.Dict[str, str]] = None,
+        content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
+    ) -> t.Union[FCMResponse, FCMBatchResponse]:
+        """
+        Sends an HTTP call using the ``httpx`` library to FCM.
+
+        :param uri: URI to be requested.
+        :param response_handler: the model to handle response.
+        :param json_payload: request JSON payload
+        :param headers: request headers.
+        :param content: request content
+        :return: HTTP response
+        """
+        url = join_url(self.BASE_URL, uri)
+        return await self._send_request(  # type: ignore
+            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
+        )
+
+    async def send_iid_request(
+        self,
+        uri: str,
+        response_handler: TopicManagementResponseHandler,
+        json_payload: t.Optional[t.Dict[str, t.Any]] = None,
+        headers: t.Optional[t.Dict[str, str]] = None,
+        content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
+    ) -> TopicManagementResponse:
+        """
+        Sends an HTTP call using the ``httpx`` library to the IID service for topic management functionality.
+
+        :param uri: URI to be requested.
+        :param response_handler: the model to handle response.
+        :param json_payload: request JSON payload
+        :param headers: request headers.
+        :param content: request content
+        :return: HTTP response
+        """
+        url = join_url(self.IID_URL, uri)
+        headers = headers or await self.prepare_headers()
+        headers.update(self.IID_HEADERS)
+        return await self._send_request(  # type: ignore
+            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
+        )

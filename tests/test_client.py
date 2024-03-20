@@ -19,9 +19,13 @@ from async_firebase.messages import (
     ApsAlert,
     FCMBatchResponse,
     FCMResponse,
+    TopicManagementResponse,
     Message,
     WebpushConfig,
-    WebpushNotification, WebpushFCMOptions, MulticastMessage,
+    WebpushNotification,
+    WebpushFCMOptions,
+    MulticastMessage,
+    TopicManagementErrorInfo,
 )
 from async_firebase.utils import FcmErrorCode
 
@@ -733,3 +737,106 @@ def test_build_webpush_config(fake_async_fcm_client_w_creds):
         ),
         fcm_options=WebpushFCMOptions(link="https://link-to-something.domain.com")
     )
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_subscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        status_code=200,
+        json={"results": [{}, {}, {}]},
+    )
+    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=fake_multi_device_tokens
+    )
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.errors == []
+    assert response.failure_count == 0
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_subscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    device_tokens = [*fake_multi_device_tokens, "incorrect"]
+    httpx_mock.add_response(
+        status_code=200,
+        json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
+    )
+    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+        topic_name='test_topic', device_tokens=device_tokens
+    )
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.failure_count == 1
+    assert len(response.errors) == 1
+
+    assert isinstance(response.errors[0], TopicManagementErrorInfo)
+    assert response.errors[0].index == 3
+    assert response.errors[0].reason == "INVALID_ARGUMENT"
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_unsubscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        status_code=200,
+        json={"results": [{}, {}, {}]},
+    )
+    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+        topic_name="test_topic", device_tokens=fake_multi_device_tokens
+    )
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.errors == []
+    assert response.failure_count == 0
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_unsubscribe_to_topic_with_incorrect(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    device_tokens = [*fake_multi_device_tokens, "incorrect"]
+    httpx_mock.add_response(
+        status_code=200,
+        json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
+    )
+    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+        topic_name='test_topic', device_tokens=device_tokens
+    )
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.failure_count == 1
+    assert len(response.errors) == 1
+
+    assert isinstance(response.errors[0], TopicManagementErrorInfo)
+    assert response.errors[0].index == 3
+    assert response.errors[0].reason == "INVALID_ARGUMENT"
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_send_topic_management_unauthenticated(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        status_code=401,
+        json={
+            "error": {
+                "code": 401,
+                "message": "Request had invalid authentication credentials. "
+                "Expected OAuth 2 access token, login cookie or other "
+                "valid authentication credential. See "
+                "https://developers.google.com/identity/sign-in/web/devconsole-project.",
+                "status": "UNAUTHENTICATED",
+            }
+        },
+    )
+    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+        topic_name="test_topic", device_tokens=fake_multi_device_tokens
+    )
+
+    assert isinstance(response, TopicManagementResponse)
+    assert not response.success_count
+    assert response.exception is not None
+    assert response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
+    assert response.exception.cause.response.status_code == 401

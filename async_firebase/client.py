@@ -32,6 +32,7 @@ from async_firebase.messages import (
     Message,
     MulticastMessage,
     PushNotification,
+    TopicManagementResponse,
     WebpushConfig,
     WebpushFCMOptions,
     WebpushNotification,
@@ -40,6 +41,7 @@ from async_firebase.messages import (
 from async_firebase.utils import (
     FCMBatchResponseHandler,
     FCMResponseHandler,
+    TopicManagementResponseHandler,
     cleanup_firebase_message,
     serialize_mime_message,
 )
@@ -547,3 +549,43 @@ class AsyncFirebaseClient(AsyncClientBase):
         ]
 
         return await self.send_each(messages, dry_run=dry_run)
+
+    async def _make_topic_management_request(
+        self, device_tokens: t.List[str], topic_name: str, action: str
+    ) -> TopicManagementResponse:
+        payload = {
+            "to": f"/topics/{topic_name}",
+            "registration_tokens": device_tokens,
+        }
+        response = await self.send_iid_request(
+            uri=action,
+            json_payload=payload,
+            response_handler=TopicManagementResponseHandler(),
+        )
+        return response
+
+    async def subscribe_devices_to_topic(self, device_tokens: t.List[str], topic_name: str) -> TopicManagementResponse:
+        """
+        Subscribes devices to the topic.
+
+        :param device_tokens: devices ids to be subscribed.
+        :param topic_name: name of the topic.
+        :returns: Instance of messages.TopicManagementResponse.
+        """
+        return await self._make_topic_management_request(
+            device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_ADD_ACTION
+        )
+
+    async def unsubscribe_devices_from_topic(
+        self, device_tokens: t.List[str], topic_name: str
+    ) -> TopicManagementResponse:
+        """
+        Unsubscribes devices from the topic.
+
+        :param device_tokens: devices ids to be unsubscribed.
+        :param topic_name: name of the topic.
+        :returns: Instance of messages.TopicManagementResponse.
+        """
+        return await self._make_topic_management_request(
+            device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_REMOVE_ACTION
+        )
