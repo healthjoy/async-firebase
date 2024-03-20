@@ -1,4 +1,7 @@
 # Changelog
+## 3.7.0
+* `async-firebase` has been allowed to perform basic topic management tasks from the server side. Given their registration token(s), you can now subscribe and unsubscribe client app instances in bulk using server logic. You can subscribe client app instances to any existing topic, or you can create a new topic.
+
 ## 3.6.3
 * [FIX] The ``join_url`` util has been tuned to encode the URL properly when the path is present. That led to the invalid URL being built.
 
