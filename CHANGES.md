@@ -1,4 +1,7 @@
 # Changelog
+## 3.8.0
+* Endow ``async_firebase.messages.MulticastMessage`` with the ability to set FCM options.
+
 ## 3.7.0
 * `async-firebase` has been allowed to perform basic topic management tasks from the server side. Given their registration token(s), you can now subscribe and unsubscribe client app instances in bulk using server logic. You can subscribe client app instances to any existing topic, or you can create a new topic.
 
