@@ -44,7 +44,7 @@ pytest-benchmark = "~4.0.0"
 pytest-cov = "~4.0.0"
 pytest-freezegun = "~0.4.2"
 pytest-httpx = "~0.22"
-black = "^22.10.0"
+black = "^24.3.0"
 mypy = "~0.991"
 
 [tool.isort]
