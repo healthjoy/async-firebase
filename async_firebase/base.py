@@ -80,6 +80,7 @@ class AsyncClientBase:
             self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(**self._request_timeout.__dict__),
                 limits=httpx.Limits(**self._request_limits.__dict__),
+                http2=True
             )
         return self._http_client
 
