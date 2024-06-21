@@ -30,7 +30,7 @@ classifiers = [
 python = ">=3.8,<3.13"
 
 google-auth = "~2.6.0"
-httpx = ">=0.23.0,<1.0.0"
+httpx = { version = ">=0.23.0,<1.0.0", extras = ["http2"] }
 
 [tool.poetry.dev-dependencies]
 pre-commit = "~2.21"
