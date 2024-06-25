@@ -50,7 +50,7 @@ class AsyncClientBase:
         *,
         request_timeout: RequestTimeout = DEFAULT_REQUEST_TIMEOUT,
         request_limits: RequestLimits = DEFAULT_REQUEST_LIMITS,
-        use_http2: bool = False
+        use_http2: bool = False,
     ) -> None:
         """
         :param credentials: instance of ``google.oauth2.service_account.Credentials``.
@@ -83,7 +83,7 @@ class AsyncClientBase:
             self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(**self._request_timeout.__dict__),
                 limits=httpx.Limits(**self._request_limits.__dict__),
-                http2=self._use_http2
+                http2=self._use_http2,
             )
         return self._http_client
 
