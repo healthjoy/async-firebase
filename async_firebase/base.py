@@ -50,6 +50,7 @@ class AsyncClientBase:
         *,
         request_timeout: RequestTimeout = DEFAULT_REQUEST_TIMEOUT,
         request_limits: RequestLimits = DEFAULT_REQUEST_LIMITS,
+        use_http2: bool = False,
     ) -> None:
         """
         :param credentials: instance of ``google.oauth2.service_account.Credentials``.
@@ -66,12 +67,14 @@ class AsyncClientBase:
         :param scopes: user-defined scopes to request during the authorization grant.
         :param request_timeout: advanced feature that allows to change request timeout.
         :param request_limits: advanced feature that allows to control the connection pool size.
+        :param use_http2: advanced feature that allows to control usage of http protocol.
         """
         self._credentials: service_account.Credentials = credentials
         self.scopes: t.List[str] = scopes or self.SCOPES
 
         self._request_timeout = request_timeout
         self._request_limits = request_limits
+        self._use_http2 = use_http2
         self._http_client: t.Optional[httpx.AsyncClient] = None
 
     @property
@@ -80,6 +83,7 @@ class AsyncClientBase:
             self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(**self._request_timeout.__dict__),
                 limits=httpx.Limits(**self._request_limits.__dict__),
+                http2=self._use_http2,
             )
         return self._http_client
 
