@@ -1,4 +1,11 @@
 # Changelog
+## 3.9.0
+* Add ability to say that HTTP/2 protocol should be used when making request. Please find an example below:
+```python
+
+client = AsyncFirebaseClient(use_http2=True)
+```
+
 ## 3.8.0
 * Endow ``async_firebase.messages.MulticastMessage`` with the ability to set FCM options.
 
