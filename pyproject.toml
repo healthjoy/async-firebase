@@ -36,6 +36,7 @@ httpx = ">=0.23.0,<1.0.0"
 pre-commit = "~2.21"
 cryptography = "~42.0.4"
 Faker = "~15.3"
+setuptools = "^75.3.0"
 
 # tests
 pytest = "~7.3"
