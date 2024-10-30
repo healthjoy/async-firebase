@@ -55,9 +55,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: |
-          poetry install --no-interaction --no-root
-          poetry run pip install --upgrade setuptools
+        run: poetry install --no-interaction --no-root
 
       - name: Install library
         run: poetry install --no-interaction
@@ -177,7 +175,9 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Run pytest
-        run: poetry run pytest tests/
+        run: |
+          poetry run pip install --upgrade setuptools
+          poetry run pytest tests/
 
       - name: Submit coverage report
         if: github.ref == 'refs/heads/master'
