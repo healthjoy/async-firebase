@@ -1,4 +1,7 @@
 # Changelog
+## 3.10.0
+* `async_firebase` now works with python 3.13
+
 ## 3.9.0
 * Add ability to say that HTTP/2 protocol should be used when making request. Please find an example below:
 ```python
