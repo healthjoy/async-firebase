@@ -11,7 +11,7 @@ import logging
 import typing as t
 import warnings
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
 from urllib.parse import urljoin
@@ -229,7 +229,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         """
 
         apns_headers = {
-            "apns-expiration": str(int(datetime.utcnow().timestamp()) + ttl),
+            "apns-expiration": str(int(datetime.now(timezone.utc).timestamp()) + ttl),
             "apns-priority": str(10 if priority == "high" else 5),
         }
         if apns_topic:
