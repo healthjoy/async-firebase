@@ -1,4 +1,7 @@
 # Changelog
+## 3.11.0
+* [MINOR] Usage of `datetime.utcnow()` is deprecated in Python 3.12, so it was replaced with a recommended way, which is `datetime.now(timezone.utc)`
+
 ## 3.10.0
 * `async_firebase` now works with python 3.13
 
