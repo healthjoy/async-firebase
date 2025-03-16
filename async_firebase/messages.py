@@ -4,10 +4,18 @@
 
 import typing as t
 from dataclasses import dataclass, field
+from enum import Enum
 
 import httpx
 
 from async_firebase.errors import AsyncFirebaseError
+
+
+class Visibility(str, Enum):
+    VISIBILITY_UNSPECIFIED: str = "VISIBILITY_UNSPECIFIED"
+    PRIVATE: str = "PRIVATE"
+    PUBLIC: str = "PUBLIC"
+    SECRET: str = "SECRET"
 
 
 @dataclass
@@ -39,6 +47,8 @@ class AndroidNotification:
     notification_count: the number of items this notification represents (optional). If zero or unspecified, systems
         that support badging use the default, which is to increment a number displayed on the long-press menu each time
         a new notification arrives.
+    visibility: sets the different visibility levels of a notification. More about Visibility levels can be found by
+        reference https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Visibility
     """
 
     title: t.Optional[str] = None
@@ -54,6 +64,7 @@ class AndroidNotification:
     title_loc_args: t.List[str] = field(default_factory=list)
     channel_id: t.Optional[str] = None
     notification_count: t.Optional[int] = None
+    visibility: t.Optional[Visibility] = None
 
 
 @dataclass

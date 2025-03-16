@@ -8,6 +8,7 @@ from email.generator import Generator
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
 from email.parser import FeedParser
+from enum import Enum
 from urllib.parse import quote, urlencode, urljoin
 
 import httpx
@@ -123,6 +124,8 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
         result = []
         for f in fields(dataclass_obj):
             value = cleanup_firebase_message(getattr(dataclass_obj, f.name), dict_factory)
+            if isinstance(value, Enum):
+                value = value.value
             result.append((f.name, value))
         return remove_null_values(dict_factory(result))
     elif isinstance(dataclass_obj, (list, tuple)):

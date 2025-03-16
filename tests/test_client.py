@@ -26,6 +26,7 @@ from async_firebase.messages import (
     WebpushFCMOptions,
     MulticastMessage,
     TopicManagementErrorInfo,
+    Visibility,
 )
 from async_firebase.utils import FcmErrorCode
 
@@ -59,7 +60,16 @@ async def fake__get_access_token():
     return "fake-jwt-token"
 
 
-def test_build_android_config(fake_async_fcm_client_w_creds):
+@pytest.mark.parametrize(
+    "visibility_level, exp_visibility_level",
+    (
+        (Visibility.VISIBILITY_UNSPECIFIED, Visibility.PRIVATE),
+        (Visibility.PRIVATE, Visibility.PRIVATE),
+        (Visibility.PUBLIC, Visibility.PUBLIC),
+        (Visibility.SECRET, Visibility.SECRET),
+    )
+)
+def test_build_android_config(fake_async_fcm_client_w_creds, visibility_level, exp_visibility_level):
     android_config = fake_async_fcm_client_w_creds.build_android_config(
         priority="high",
         ttl=7200,
@@ -72,6 +82,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
         click_action="TOP_STORY_ACTIVITY",
         channel_id="some_channel_id",
         notification_count=7,
+        visibility=visibility_level,
     )
     assert android_config == AndroidConfig(
         **{
@@ -95,6 +106,7 @@ def test_build_android_config(fake_async_fcm_client_w_creds):
                     "title_loc_args": [],
                     "channel_id": "some_channel_id",
                     "notification_count": 7,
+                    "visibility": exp_visibility_level.value,
                 }
             ),
         }
@@ -153,7 +165,31 @@ async def test_prepare_headers(fake_async_fcm_client_w_creds):
     }
 
 
-async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+async def test_push_android(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json={"name": f"projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb23"},
+    )
+    android_config = fake_async_fcm_client_w_creds.build_android_config(
+        priority="normal",
+        ttl=604800,
+        collapse_key="SALE",
+        title="Sring SALE",
+        body="Don't miss spring SALE",
+        tag="spring-sale",
+        notification_count=1,
+        visibility=Visibility.PUBLIC
+    )
+    message = Message(android=android_config, token=fake_device_token)
+    response = await fake_async_fcm_client_w_creds.send(message)
+    assert isinstance(response, FCMResponse)
+    assert response.success
+    assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb23"
+
+
+async def test_push_ios(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
@@ -175,7 +211,30 @@ async def test_push(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock
     assert response.message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
 
 
-async def test_send_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+async def test_send_android_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json={"name": f"projects/{creds.project_id}/messages/fake_message_id"},
+    )
+    android_config = fake_async_fcm_client_w_creds.build_android_config(
+        priority="high",
+        ttl=2419200,
+        collapse_key="push",
+        data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
+        title="Store Changes",
+        body="Recent store changes",
+        visibility="PUBLIC"
+    )
+    message = Message(android=android_config, token=fake_device_token)
+    response = await fake_async_fcm_client_w_creds.send(message, dry_run=True)
+    assert isinstance(response, FCMResponse)
+    assert response.success
+    assert response.message_id == "projects/fake-mobile-app/messages/fake_message_id"
+
+
+async def test_send_ios_dry_run(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
