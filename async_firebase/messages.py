@@ -13,9 +13,11 @@ from async_firebase.errors import AsyncFirebaseError
 
 class Visibility(IntEnum):
     """Available visibility levels.
-    
-    To get more insights please follow the reference https://developer.android.com/reference/android/app/Notification#visibility
+
+    To get more insights please follow the reference
+    https://developer.android.com/reference/android/app/Notification#visibility
     """
+
     PRIVATE: int = 0
     PUBLIC: int = 1
     SECRET: int = -1
