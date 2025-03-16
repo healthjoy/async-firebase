@@ -4,18 +4,21 @@
 
 import typing as t
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 
 import httpx
 
 from async_firebase.errors import AsyncFirebaseError
 
 
-class Visibility(str, Enum):
-    VISIBILITY_UNSPECIFIED: str = "VISIBILITY_UNSPECIFIED"
-    PRIVATE: str = "PRIVATE"
-    PUBLIC: str = "PUBLIC"
-    SECRET: str = "SECRET"
+class Visibility(IntEnum):
+    """Available visibility levels.
+    
+    To get more insights please follow the reference https://developer.android.com/reference/android/app/Notification#visibility
+    """
+    PRIVATE: int = 0
+    PUBLIC: int = 1
+    SECRET: int = -1
 
 
 @dataclass

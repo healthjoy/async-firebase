@@ -63,7 +63,7 @@ async def fake__get_access_token():
 @pytest.mark.parametrize(
     "visibility_level, exp_visibility_level",
     (
-        (Visibility.VISIBILITY_UNSPECIFIED, Visibility.PRIVATE),
+        (None, Visibility.PRIVATE),
         (Visibility.PRIVATE, Visibility.PRIVATE),
         (Visibility.PUBLIC, Visibility.PUBLIC),
         (Visibility.SECRET, Visibility.SECRET),
