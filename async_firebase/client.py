@@ -33,6 +33,7 @@ from async_firebase.messages import (
     MulticastMessage,
     PushNotification,
     TopicManagementResponse,
+    Visibility,
     WebpushConfig,
     WebpushFCMOptions,
     WebpushNotification,
@@ -108,6 +109,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         title_loc_args: t.Optional[t.List[str]] = None,
         channel_id: t.Optional[str] = None,
         notification_count: t.Optional[int] = None,
+        visibility: Visibility = Visibility.PRIVATE,
     ) -> AndroidConfig:
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
@@ -143,6 +145,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         :param notification_count: The number of items in notification. May be displayed as a badge count for launchers
             that support badging. If zero or unspecified, systems that support badging use the default, which is to
             increment a number displayed on the long-press menu each time a new notification arrives (optional).
+        :param visibility: set the visibility of the notification. The default level, VISIBILITY_PRIVATE.
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         android_config = AndroidConfig(
@@ -165,6 +168,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 title_loc_args=title_loc_args or [],
                 channel_id=channel_id,
                 notification_count=notification_count,
+                visibility=visibility,
             ),
         )
 

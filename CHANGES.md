@@ -1,4 +1,7 @@
 # Changelog
+## 3.12.0
+* Extend ``async_firebase.messages.AndroidNotification`` object with new attribute ``Visibility``. The attribute sets different visibility levels of a notification.
+
 ## 3.11.0
 * [MINOR] Usage of `datetime.utcnow()` is deprecated in Python 3.12, so it was replaced with a recommended way, which is `datetime.now(timezone.utc)`
 
