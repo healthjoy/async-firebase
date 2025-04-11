@@ -127,7 +127,9 @@ class AsyncClientBase:
         response: httpx.Response = await self._client.post(self.TOKEN_URL, content=data, headers=headers)
         response_data = response.json()
 
-        self._credentials.expiry = datetime.now(timezone.utc) + timedelta(seconds=response_data["expires_in"])
+        self._credentials.expiry = (
+            datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=response_data["expires_in"])
+        )
         self._credentials.token = response_data["access_token"]
         return self._credentials.token
 
