@@ -1,4 +1,7 @@
 # Changelog
+## 3.12.1
+* [FIX] `google-auth` deals with offset-maive datetime objct when validating token. Method `async_firebase.base.AsyncClientBase._get_access_token` is adjusted to replace tzinfo with `None`.
+
 ## 3.12.0
 * Extend ``async_firebase.messages.AndroidNotification`` object with new attribute ``Visibility``. The attribute sets different visibility levels of a notification.
 
