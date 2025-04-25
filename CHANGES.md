@@ -1,4 +1,7 @@
 # Changelog
+## 4.0.0
+* [BREAKING] Drop support of **Python 3.8** and update dependencies.
+
 ## 3.12.1
 * [FIX] `google-auth` deals with offset-maive datetime objct when validating token. Method `async_firebase.base.AsyncClientBase._get_access_token` is adjusted to replace tzinfo with `None`.
 

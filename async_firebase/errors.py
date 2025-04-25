@@ -1,4 +1,5 @@
 """Async Firebase errors."""
+
 import typing as t
 from enum import Enum
 

@@ -18,9 +18,9 @@ class Visibility(IntEnum):
     https://developer.android.com/reference/android/app/Notification#visibility
     """
 
-    PRIVATE: int = 0
-    PUBLIC: int = 1
-    SECRET: int = -1
+    PRIVATE = 0
+    PUBLIC = 1
+    SECRET = -1
 
 
 @dataclass
