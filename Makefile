@@ -79,5 +79,5 @@ install_pre_commit:
 .PHONY: pre_commit
 pre_commit:
 	@echo "$(BOLD)Run pre-commit$(RESET)"
-	@pre-commit run -a
+	@pre-commit run --all-files
 	@echo "$(BOLD)Done!$(RESET)"

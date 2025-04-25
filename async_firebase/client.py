@@ -4,6 +4,7 @@ The module houses client to communicate with FCM - Firebase Cloud Messaging (And
 Documentation for google-auth package https://google-auth.readthedocs.io/en/latest/user-guide.html that is used
 to authorize request which is being made to Firebase.
 """
+
 import asyncio
 import collections
 import json

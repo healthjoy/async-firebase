@@ -284,9 +284,9 @@ class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
 
         error_data = data.get("error", {})
         if not error_data.get("message"):
-            error_data[
-                "message"
-            ] = f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
+            error_data["message"] = (
+                f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
+            )
         return error_data
 
 
@@ -337,8 +337,8 @@ class FCMBatchResponseHandler(FCMResponseHandlerBase[FCMBatchResponse]):
 
         responses = []
         for part in mime_response.get_payload():
-            request_id = part["Content-ID"].split("-", 1)[-1]
-            status_line, payload = part.get_payload().split("\n", 1)
+            request_id = part["Content-ID"].split("-", 1)[-1]  # type: ignore
+            status_line, payload = part.get_payload().split("\n", 1)  # type: ignore
             _, status_code, _ = status_line.split(" ", 2)
             status_code = int(status_code)
 
@@ -346,14 +346,14 @@ class FCMBatchResponseHandler(FCMResponseHandlerBase[FCMBatchResponse]):
             parser = FeedParser()
             parser.feed(payload)
             msg = parser.close()
-            msg["status_code"] = status_code
+            msg["status_code"] = t.cast(str, status_code)
 
             # Create httpx.Response from the parsed headers.
             resp = httpx.Response(
                 status_code=status_code,
                 headers=httpx.Headers({"Content-Type": msg.get_content_type(), "X-Request-ID": request_id}),
                 content=msg.get_payload(),
-                json=json.loads(msg.get_payload()),
+                json=json.loads(msg.get_payload()),  # type: ignore
             )
             responses.append(resp)
 
