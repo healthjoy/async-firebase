@@ -112,7 +112,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         channel_id: t.Optional[str] = None,
         notification_count: t.Optional[int] = None,
         visibility: Visibility = Visibility.PRIVATE,
-        proxy: t.Optional[NotificationProxy] = None
+        proxy: t.Optional[NotificationProxy] = None,
     ) -> AndroidConfig:
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.

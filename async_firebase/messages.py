@@ -4,7 +4,7 @@
 
 import typing as t
 from dataclasses import dataclass, field
-from enum import IntEnum, Enum
+from enum import Enum, IntEnum
 
 import httpx
 
@@ -33,6 +33,7 @@ class NotificationProxy(Enum):
     ALLOW = "allow"
     DENY = "deny"
     IF_PRIORITY_LOWERED = "if_priority_lowered"
+
 
 @dataclass
 class AndroidNotification:
