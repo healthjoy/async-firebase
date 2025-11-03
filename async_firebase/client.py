@@ -32,6 +32,7 @@ from async_firebase.messages import (
     FCMResponse,
     Message,
     MulticastMessage,
+    NotificationProxy,
     PushNotification,
     TopicManagementResponse,
     Visibility,
@@ -111,6 +112,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         channel_id: t.Optional[str] = None,
         notification_count: t.Optional[int] = None,
         visibility: Visibility = Visibility.PRIVATE,
+        proxy: t.Optional[NotificationProxy] = None
     ) -> AndroidConfig:
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
@@ -147,6 +149,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             that support badging. If zero or unspecified, systems that support badging use the default, which is to
             increment a number displayed on the long-press menu each time a new notification arrives (optional).
         :param visibility: set the visibility of the notification. The default level, VISIBILITY_PRIVATE.
+        :param proxy: set the proxy behaviour. The default behaviour is set to None.
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         android_config = AndroidConfig(
@@ -170,6 +173,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 channel_id=channel_id,
                 notification_count=notification_count,
                 visibility=visibility,
+                proxy=proxy,
             ),
         )
 

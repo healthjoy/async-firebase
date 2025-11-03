@@ -21,6 +21,7 @@ from async_firebase.messages import (
     FCMResponse,
     TopicManagementResponse,
     Message,
+    NotificationProxy,
     WebpushConfig,
     WebpushNotification,
     WebpushFCMOptions,
@@ -61,14 +62,20 @@ async def fake__get_access_token():
 
 
 @pytest.mark.parametrize(
-    "visibility_level, exp_visibility_level",
+    "visibility_level, exp_visibility_level, proxy, exp_proxy",
     (
-        (Visibility.PRIVATE, Visibility.PRIVATE),
-        (Visibility.PUBLIC, Visibility.PUBLIC),
-        (Visibility.SECRET, Visibility.SECRET),
+        (Visibility.PRIVATE, Visibility.PRIVATE, NotificationProxy.ALLOW, NotificationProxy.ALLOW),
+        (Visibility.PUBLIC, Visibility.PUBLIC, NotificationProxy.DENY, NotificationProxy.DENY),
+        (
+            Visibility.SECRET,
+            Visibility.SECRET,
+            NotificationProxy.IF_PRIORITY_LOWERED, 
+            NotificationProxy.IF_PRIORITY_LOWERED
+        ),
+        (Visibility.PUBLIC, Visibility.PUBLIC, None, None),
     )
 )
-def test_build_android_config(fake_async_fcm_client_w_creds, visibility_level, exp_visibility_level):
+def test_build_android_config(fake_async_fcm_client_w_creds, visibility_level, exp_visibility_level, proxy, exp_proxy):
     android_config = fake_async_fcm_client_w_creds.build_android_config(
         priority="high",
         ttl=7200,
@@ -82,7 +89,9 @@ def test_build_android_config(fake_async_fcm_client_w_creds, visibility_level, e
         channel_id="some_channel_id",
         notification_count=7,
         visibility=visibility_level,
+        proxy=proxy,
     )
+
     assert android_config == AndroidConfig(
         **{
             "priority": "high",
@@ -105,7 +114,8 @@ def test_build_android_config(fake_async_fcm_client_w_creds, visibility_level, e
                     "title_loc_args": [],
                     "channel_id": "some_channel_id",
                     "notification_count": 7,
-                    "visibility": exp_visibility_level.value,
+                    "visibility": exp_visibility_level,
+                    "proxy": exp_proxy,
                 }
             ),
         }
