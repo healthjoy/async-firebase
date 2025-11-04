@@ -4,7 +4,7 @@
 
 import typing as t
 from dataclasses import dataclass, field
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 import httpx
 
@@ -21,6 +21,18 @@ class Visibility(IntEnum):
     PRIVATE = 0
     PUBLIC = 1
     SECRET = -1
+
+
+class NotificationProxy(Enum):
+    """Available proxy behaviors.
+
+    To get more insights please follow the reference
+    https://firebase.google.com/docs/reference/admin/dotnet/namespace/firebase-admin/messaging#notificationproxy
+    """
+
+    ALLOW = "allow"
+    DENY = "deny"
+    IF_PRIORITY_LOWERED = "if_priority_lowered"
 
 
 @dataclass
@@ -54,6 +66,8 @@ class AndroidNotification:
         a new notification arrives.
     visibility: sets the different visibility levels of a notification. More about Visibility levels can be found by
         reference https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages#Visibility
+    proxy: gets or sets the proxy behavior of this notification. Must be one of ``allow``, ``deny``, or
+        ``if_priority_lowered``. If unspecified, it remains undefined and defers to the FCM backend's default mapping.
     """
 
     title: t.Optional[str] = None
@@ -70,6 +84,7 @@ class AndroidNotification:
     channel_id: t.Optional[str] = None
     notification_count: t.Optional[int] = None
     visibility: t.Optional[Visibility] = None
+    proxy: t.Optional[NotificationProxy] = None
 
 
 @dataclass
