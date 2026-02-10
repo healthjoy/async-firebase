@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.0
+* [BREAKING] Drop support of **Python 3.9** and update dependencies.
+* Add support of **Python 3.14**.
+
 ## 4.1.0
 * Extend ``async_firebase.messages.AndroidNotification`` object with new attribute ``proxy``. The attribute sets whether the notification can be proxied. Must be one of ``allow``, ``deny``, or ``if_priority_lowered``.
 

@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 from unittest import mock
 
-import pkg_resources
+from importlib.metadata import version
+
 import pytest
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
@@ -170,7 +171,7 @@ async def test_prepare_headers(fake_async_fcm_client_w_creds):
         "Content-Type": "application/json; UTF-8",
         "X-Request-Id": str(frozen_uuid),
         "X-GOOG-API-FORMAT-VERSION": "2",
-        "X-FIREBASE-CLIENT": "async-firebase/{0}".format(pkg_resources.get_distribution("async-firebase").version),
+        "X-FIREBASE-CLIENT": "async-firebase/{0}".format(version("async-firebase")),
     }
 
 
