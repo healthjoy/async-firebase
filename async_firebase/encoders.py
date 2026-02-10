@@ -1,6 +1,4 @@
-"""The module houses encoders needed to properly form the payload.
-
-"""
+"""The module houses encoders needed to properly form the payload."""
 
 import typing as t
 from copy import deepcopy

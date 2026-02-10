@@ -63,7 +63,7 @@ jobs:
       - name: Log currently installed packages and versions
         run: poetry show
 
-  linters-black:
+  linters-ruff:
     needs: create-virtualenv
     runs-on: ubuntu-latest
     steps:
@@ -97,7 +97,7 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Check code style
-        run: poetry run black --check --line-length=120 --diff async_firebase
+        run: poetry run ruff check async_firebase && poetry run ruff format --check async_firebase
 
   linters-mypy:
     needs: create-virtualenv
@@ -138,7 +138,7 @@ jobs:
           poetry run mypy --install-types --no-error-summary --hide-error-codes --follow-imports=skip async_firebase
 
   test:
-    needs: [ linters-black, linters-mypy ]
+    needs: [ linters-ruff, linters-mypy ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
