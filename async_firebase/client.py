@@ -487,7 +487,8 @@ class AsyncFirebaseClient(AsyncClientBase):
                 httpx.Request(
                     method="POST",
                     url=urljoin(
-                        self.BASE_URL, self.FCM_ENDPOINT.format(project_id=self._credentials.project_id)  # type: ignore
+                        self.BASE_URL,
+                        self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
                     ),
                     headers=await self.prepare_headers(),
                     content=json.dumps(push_notification),

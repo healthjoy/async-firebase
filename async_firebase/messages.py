@@ -1,6 +1,4 @@
-"""The module houses the message structures that can be used to construct a push notification payload.
-
-"""
+"""The module houses the message structures that can be used to construct a push notification payload."""
 
 import typing as t
 from dataclasses import dataclass, field
