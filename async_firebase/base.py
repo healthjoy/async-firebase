@@ -8,23 +8,19 @@ to authorize request which is being made to Firebase.
 import logging
 import typing as t
 import uuid
-from datetime import datetime, timedelta, timezone
-from email.mime.nonmultipart import MIMENonMultipart
 from importlib.metadata import version
 from pathlib import PurePath
-from urllib.parse import urlencode
 
 import httpx
 from google.oauth2 import service_account  # type: ignore
 
 from async_firebase._config import DEFAULT_REQUEST_LIMITS, DEFAULT_REQUEST_TIMEOUT, RequestLimits, RequestTimeout
-from async_firebase.messages import FCMBatchResponse, FCMResponse, TopicManagementResponse
+from async_firebase._credentials import CredentialManager
+from async_firebase.messages import FCMResponse, TopicManagementResponse
 from async_firebase.utils import (
-    FCMBatchResponseHandler,
     FCMResponseHandler,
     TopicManagementResponseHandler,
     join_url,
-    serialize_mime_message,
 )
 
 
@@ -32,13 +28,7 @@ class AsyncClientBase:
     """Base asynchronous client"""
 
     BASE_URL: str = "https://fcm.googleapis.com"
-    TOKEN_URL: str = "https://oauth2.googleapis.com/token"
     FCM_ENDPOINT: str = "/v1/projects/{project_id}/messages:send"
-    FCM_BATCH_ENDPOINT: str = "/batch"
-    # A list of accessible OAuth 2.0 scopes can be found https://developers.google.com/identity/protocols/oauth2/scopes.
-    SCOPES: t.List[str] = [
-        "https://www.googleapis.com/auth/cloud-platform",
-    ]
     IID_URL = "https://iid.googleapis.com"
     IID_HEADERS = {"access_token_auth": "true"}
     TOPIC_ADD_ACTION = "iid/v1:batchAdd"
@@ -70,13 +60,25 @@ class AsyncClientBase:
         :param request_limits: advanced feature that allows to control the connection pool size.
         :param use_http2: advanced feature that allows to control usage of http protocol.
         """
-        self._credentials: service_account.Credentials = credentials
-        self.scopes: t.List[str] = scopes or self.SCOPES
+        self._credential_manager = CredentialManager(credentials=credentials, scopes=scopes)
 
         self._request_timeout = request_timeout
         self._request_limits = request_limits
         self._use_http2 = use_http2
         self._http_client: t.Optional[httpx.AsyncClient] = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+        return False
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client and release resources."""
+        if self._http_client is not None and not self._http_client.is_closed:
+            await self._http_client.aclose()
+            self._http_client = None
 
     @property
     def _client(self) -> httpx.AsyncClient:
@@ -88,15 +90,17 @@ class AsyncClientBase:
             )
         return self._http_client
 
+    @property
+    def _credentials(self) -> service_account.Credentials:
+        return self._credential_manager.credentials
+
     def creds_from_service_account_info(self, service_account_info: t.Dict[str, str]) -> None:
         """
         Creates a Credentials instance from parsed service account info.
 
         :param service_account_info: the service account info in Google format.
         """
-        self._credentials = service_account.Credentials.from_service_account_info(
-            info=service_account_info, scopes=self.scopes
-        )
+        self._credential_manager.from_service_account_info(service_account_info)
 
     def creds_from_service_account_file(self, service_account_filename: t.Union[str, PurePath]) -> None:
         """
@@ -104,68 +108,16 @@ class AsyncClientBase:
 
         :param service_account_filename: the path to the service account json file.
         """
-        if isinstance(service_account_filename, PurePath):
-            service_account_filename = str(service_account_filename)
-
-        logging.debug("Creating credentials from file: %s", service_account_filename)
-        self._credentials = service_account.Credentials.from_service_account_file(
-            filename=service_account_filename, scopes=self.scopes
-        )
+        self._credential_manager.from_service_account_file(service_account_filename)
 
     async def _get_access_token(self) -> str:
         """Get OAuth 2 access token."""
-        if self._credentials.valid:
-            return self._credentials.token
-
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        data = urlencode(
-            {
-                "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                "assertion": self._credentials._make_authorization_grant_assertion(),
-            }
-        ).encode("utf-8")
-
-        response: httpx.Response = await self._client.post(self.TOKEN_URL, content=data, headers=headers)
-        response_data = response.json()
-
-        self._credentials.expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
-            seconds=response_data["expires_in"]
-        )
-        self._credentials.token = response_data["access_token"]
-        return self._credentials.token
+        return await self._credential_manager.get_access_token(self._client)
 
     @staticmethod
     def get_request_id():
         """Generate unique request ID."""
         return str(uuid.uuid4())
-
-    @staticmethod
-    def serialize_batch_request(request: httpx.Request) -> str:
-        """
-        Convert an HttpRequest object into a string.
-
-        :param request: `httpx.Request`, the request to serialize.
-        :return: a string in application/http format.
-        """
-        status_line = f"{request.method} {request.url.path} HTTP/1.1\n"
-        major, minor = request.headers.get("content-type", "application/json").split("/")
-        msg = MIMENonMultipart(major, minor)
-        headers = request.headers.copy()
-
-        # MIMENonMultipart adds its own Content-Type header.
-        if "content-type" in headers:
-            del headers["content-type"]
-
-        for key, value in headers.items():
-            msg[key] = value
-        msg.set_unixfrom(None)  # type: ignore
-
-        if request.content is not None:
-            msg.set_payload(request.content)
-            msg["content-length"] = str(len(request.content))
-
-        body = serialize_mime_message(msg, max_header_len=0)
-        return f"{status_line}{body}"
 
     async def prepare_headers(self) -> t.Dict[str, str]:
         """Prepare HTTP headers that will be used to request Firebase Cloud Messaging."""
@@ -176,17 +128,17 @@ class AsyncClientBase:
             "Content-Type": "application/json; UTF-8",
             "X-Request-Id": self.get_request_id(),
             "X-GOOG-API-FORMAT-VERSION": "2",
-            "X-FIREBASE-CLIENT": "async-firebase/{0}".format(version("async-firebase")),
+            "X-FIREBASE-CLIENT": f"async-firebase/{version('async-firebase')}",
         }
 
     async def _send_request(
         self,
         url: str,
-        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler, TopicManagementResponseHandler],
+        response_handler: t.Union[FCMResponseHandler, TopicManagementResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FCMResponse, FCMBatchResponse, TopicManagementResponse]:
+    ) -> t.Union[FCMResponse, TopicManagementResponse]:
         logging.debug(
             "Requesting POST %s, payload: %s, content: %s, headers: %s",
             url,
@@ -217,22 +169,30 @@ class AsyncClientBase:
     async def send_request(
         self,
         uri: str,
-        response_handler: t.Union[FCMResponseHandler, FCMBatchResponseHandler],
+        response_handler: t.Union[FCMResponseHandler, TopicManagementResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FCMResponse, FCMBatchResponse]:
+        *,
+        base_url: t.Optional[str] = None,
+        extra_headers: t.Optional[t.Dict[str, str]] = None,
+    ) -> t.Union[FCMResponse, TopicManagementResponse]:
         """
-        Sends an HTTP call using the ``httpx`` library to FCM.
+        Sends an HTTP call using the ``httpx`` library.
 
         :param uri: URI to be requested.
         :param response_handler: the model to handle response.
         :param json_payload: request JSON payload
         :param headers: request headers.
         :param content: request content
+        :param base_url: base URL to use (defaults to FCM BASE_URL).
+        :param extra_headers: additional headers to merge into the request headers.
         :return: HTTP response
         """
-        url = join_url(self.BASE_URL, uri)
+        url = join_url(base_url or self.BASE_URL, uri)
+        if extra_headers:
+            headers = headers or await self.prepare_headers()
+            headers.update(extra_headers)
         return await self._send_request(  # type: ignore
             url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
         )
@@ -255,9 +215,12 @@ class AsyncClientBase:
         :param content: request content
         :return: HTTP response
         """
-        url = join_url(self.IID_URL, uri)
-        headers = headers or await self.prepare_headers()
-        headers.update(self.IID_HEADERS)
-        return await self._send_request(  # type: ignore
-            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
+        return await self.send_request(  # type: ignore
+            uri=uri,
+            response_handler=response_handler,
+            json_payload=json_payload,
+            headers=headers,
+            content=content,
+            base_url=self.IID_URL,
+            extra_headers=self.IID_HEADERS,
         )

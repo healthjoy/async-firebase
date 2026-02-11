@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.1.0
+* [BREAKING] Remove deprecated ``send_all`` and ``send_multicast`` methods. Use ``send_each`` and ``send_each_for_multicast`` instead.
+* Add async context manager support (``async with AsyncFirebaseClient() as client:``) for proper resource cleanup.
+* Add concurrency-safe token refresh with ``asyncio.Lock`` to prevent duplicate refresh requests.
+* Move ``build_android_config``, ``build_apns_config``, ``build_webpush_config`` to classmethod constructors on their respective config dataclasses (``AndroidConfig.build()``, ``APNSConfig.build()``, ``WebpushConfig.build()``). The old ``client.build_*`` methods still work as backward-compatible wrappers.
+* Extract credential management from ``AsyncClientBase`` into dedicated ``CredentialManager`` class.
+* Consolidate ``send_request`` and ``send_iid_request`` into unified interface with ``base_url`` and ``extra_headers`` parameters.
+* Convert ``FCMResponse``, ``FCMBatchResponse``, ``TopicManagementResponse``, and ``TopicManagementErrorInfo`` to dataclasses.
+* Simplify exception hierarchy: subclasses now declare ``default_code`` class attribute instead of duplicating ``__init__``.
+* Replace boolean-chain (``and``/``or``) control flow in error dispatch with explicit ``if``/``elif``/``else``.
+* Add ``logging.warning`` when FCM error response cannot be parsed as JSON.
+* Add ``__all__`` to ``async_firebase/__init__.py`` and re-export commonly used types (``Message``, ``AndroidConfig``, ``APNSConfig``, etc.).
+* Replace magic numbers with named constants (``APNS_PRIORITY_HIGH``, ``APNS_PRIORITY_NORMAL``, ``FCM_ERROR_TYPE_PREFIX``).
+* Fix ``remove_null_values`` to use identity check (``is not None``) instead of equality against mutable list.
+* Use ``return_exceptions=True`` in ``asyncio.gather`` within ``send_each`` to prevent one failure from losing all results.
+* Standardize string formatting on f-strings throughout the codebase.
+* Remove dead code: ``FCMBatchResponseHandler``, ``serialize_mime_message``, ``serialize_batch_request``, MIME-related imports, and ``FCM_BATCH_ENDPOINT``.
+* Update ``README.md``: remove outdated pre-3.0 examples, use ``async with`` context manager and ``Config.build()`` classmethods in all examples, fix deprecated ``datetime.utcnow()`` usage.
+
 ## 5.0.0
 * [BREAKING] Drop support of **Python 3.9** and update dependencies.
 * Add support of **Python 3.14**.

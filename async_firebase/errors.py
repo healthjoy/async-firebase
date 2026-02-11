@@ -34,26 +34,33 @@ class AsyncFirebaseError(BaseAsyncFirebaseError):
 
     This error and its subtypes and the reason to rise them are consistent with Google's errors,
     that may be found in `firebase-admin-python` in `firebase_admin.exceptions module`.
+
+    Subclasses should set ``default_code`` to the appropriate ``FcmErrorCode`` value so that
+    callers can omit the ``code`` parameter.
     """
+
+    default_code: str = FcmErrorCode.UNKNOWN.value
 
     def __init__(
         self,
-        code: str,
         message: str,
+        *,
+        code: t.Optional[str] = None,
         cause: t.Optional[httpx.HTTPError] = None,
         http_response: t.Optional[httpx.Response] = None,
     ):
         """Init the AsyncFirebase error.
 
-        :param code: A string error code that represents the type of the exception. Possible error
-            codes are defined in https://cloud.google.com/apis/design/errors#handling_errors.
         :param message: A human-readable error message string.
+        :param code: A string error code that represents the type of the exception (optional).
+            Defaults to the subclass's ``default_code``. Possible error codes are defined in
+            https://cloud.google.com/apis/design/errors#handling_errors.
         :param cause: The exception that caused this error (optional).
         :param http_response: If this error was caused by an HTTP error response, this property is
             set to the ``httpx.Response`` object that represents the HTTP response (optional).
             See https://www.python-httpx.org/api/#response for details of this object.
         """
-        self.code = code
+        self.code = code or self.default_code
         self.cause = cause
         self.http_response = http_response
         super().__init__(message)
@@ -67,33 +74,25 @@ class DeadlineExceededError(AsyncFirebaseError):
     request) and the request did not finish within the deadline.
     """
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.DEADLINE_EXCEEDED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.DEADLINE_EXCEEDED.value
 
 
 class UnavailableError(AsyncFirebaseError):
     """Service unavailable. Typically the server is down."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.UNAVAILABLE.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.UNAVAILABLE.value
 
 
 class UnknownError(AsyncFirebaseError):
     """Unknown server error."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.UNKNOWN.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.UNKNOWN.value
 
 
 class UnauthenticatedError(AsyncFirebaseError):
     """Request not authenticated due to missing, invalid, or expired OAuth token."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.UNAUTHENTICATED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.UNAUTHENTICATED.value
 
 
 class ThirdPartyAuthError(UnauthenticatedError):
@@ -103,9 +102,7 @@ class ThirdPartyAuthError(UnauthenticatedError):
 class ResourceExhaustedError(AsyncFirebaseError):
     """Either out of resource quota or reaching rate limiting."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.RESOURCE_EXHAUSTED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.RESOURCE_EXHAUSTED.value
 
 
 class QuotaExceededError(ResourceExhaustedError):
@@ -119,9 +116,7 @@ class PermissionDeniedError(AsyncFirebaseError):
     have permission, or the API has not been enabled for the client project.
     """
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.PERMISSION_DENIED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.PERMISSION_DENIED.value
 
 
 class SenderIdMismatchError(PermissionDeniedError):
@@ -134,9 +129,7 @@ class NotFoundError(AsyncFirebaseError):
     An example of the possible cause of this error is whitelisting.
     """
 
-    def __init__(self, message, cause=None, http_response=None):
-        """Please see params information in the base exception docstring."""
-        super().__init__(FcmErrorCode.NOT_FOUND.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.NOT_FOUND.value
 
 
 class UnregisteredError(NotFoundError):
@@ -149,61 +142,52 @@ class UnregisteredError(NotFoundError):
 class InvalidArgumentError(AsyncFirebaseError):
     """Client specified an invalid argument."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.INVALID_ARGUMENT.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.INVALID_ARGUMENT.value
 
 
 class FailedPreconditionError(AsyncFirebaseError):
     """Request can not be executed in the current system state, such as deleting a non-empty directory."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.FAILED_PRECONDITION.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.FAILED_PRECONDITION.value
 
 
 class OutOfRangeError(AsyncFirebaseError):
     """Client specified an invalid range."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.OUT_OF_RANGE.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.OUT_OF_RANGE.value
 
 
 class AbortedError(AsyncFirebaseError):
     """Concurrency conflict, such as read-modify-write conflict."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.ABORTED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.ABORTED.value
 
 
 class AlreadyExistsError(AsyncFirebaseError):
     """The resource that a client tried to create already exists."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.ALREADY_EXISTS.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.ALREADY_EXISTS.value
 
 
 class ConflictError(AsyncFirebaseError):
     """Concurrency conflict, such as read-modify-write conflict."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.CONFLICT.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.CONFLICT.value
 
 
 class CancelledError(AsyncFirebaseError):
     """Request cancelled by the client."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.CANCELLED.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.CANCELLED.value
 
 
 class DataLossError(AsyncFirebaseError):
     """Unrecoverable data loss or data corruption."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.DATA_LOSS.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.DATA_LOSS.value
 
 
 class InternalError(AsyncFirebaseError):
     """Internal server error."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        super().__init__(FcmErrorCode.INTERNAL.value, message, cause=cause, http_response=http_response)
+    default_code = FcmErrorCode.INTERNAL.value

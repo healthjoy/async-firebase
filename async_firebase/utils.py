@@ -1,13 +1,8 @@
-import io
-import json
+import logging
 import typing as t
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
-from email.generator import Generator
-from email.mime.multipart import MIMEMultipart
-from email.mime.nonmultipart import MIMENonMultipart
-from email.parser import FeedParser
 from enum import Enum
 from urllib.parse import quote, urlencode, urljoin
 
@@ -26,6 +21,9 @@ from async_firebase.errors import (
     UnregisteredError,
 )
 from async_firebase.messages import FCMBatchResponse, FCMResponse, TopicManagementResponse
+
+
+FCM_ERROR_TYPE_PREFIX = "type.googleapis.com/google.firebase.fcm.v1.FcmError"
 
 
 def join_url(
@@ -58,14 +56,14 @@ def join_url(
         url = f"/{url}"
 
     if params:
-        url = urljoin(url, "?{}".format(urlencode(params)))
+        url = urljoin(url, f"?{urlencode(params)}")
 
     return url
 
 
 def remove_null_values(dict_value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
     """Remove Falsy values from the dictionary."""
-    return {k: v for k, v in dict_value.items() if v not in [None, [], {}]}
+    return {k: v for k, v in dict_value.items() if v is not None and v != [] and v != {}}
 
 
 def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> dict:
@@ -135,32 +133,6 @@ def cleanup_firebase_message(dataclass_obj, dict_factory: t.Callable = dict) -> 
     return deepcopy(dataclass_obj)
 
 
-def serialize_mime_message(
-    message: t.Union[MIMEMultipart, MIMENonMultipart],
-    mangle_from: t.Optional[bool] = None,
-    max_header_len: t.Optional[int] = None,
-) -> str:
-    """
-    Serialize the MIME type message.
-
-    :param message: MIME type message
-    :param mangle_from: is a flag that, when True (the default if policy
-        is not set), escapes From_ lines in the body of the message by putting
-        a `>' in front of them.
-    :param max_header_len: specifies the longest length for a non-continued
-        header.  When a header line is longer (in characters, with tabs
-        expanded to 8 spaces) than max_header_len, the header will split as
-        defined in the Header class.  Set max_header_len to zero to disable
-        header wrapping. The default is 78, as recommended (but not required)
-        by RFC 2822.
-    :return: the entire contents of the object.
-    """
-    fp = io.StringIO()
-    gen = Generator(fp, mangle_from_=mangle_from, maxheaderlen=max_header_len)
-    gen.flatten(message, unixfrom=False)
-    return fp.getvalue()
-
-
 FCMResponseType = t.TypeVar("FCMResponseType", FCMResponse, FCMBatchResponse, TopicManagementResponse)
 
 
@@ -216,17 +188,25 @@ class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
     def _handle_response(response: httpx.Response) -> FCMResponse:
         return FCMResponse(fcm_response=response.json())
 
-    def _handle_error(self, error: httpx.HTTPError) -> FCMResponse:
-        exc = (
-            (isinstance(error, httpx.HTTPStatusError) and self._handle_fcm_error(error))
-            or (isinstance(error, httpx.HTTPError) and self._handle_request_error(error))
-            or AsyncFirebaseError(
-                code=FcmErrorCode.UNKNOWN.value,
-                message="Unexpected error has happened when hitting the FCM API",
-                cause=error,
-            )
+    def _resolve_exception(self, error: httpx.HTTPError) -> AsyncFirebaseError:
+        """Resolve an httpx error into the appropriate AsyncFirebaseError."""
+        if isinstance(error, httpx.HTTPStatusError):
+            fcm_error = self._handle_fcm_error(error)
+            if fcm_error:
+                return fcm_error
+            return self._handle_request_error(error)
+
+        if isinstance(error, httpx.HTTPError):
+            return self._handle_request_error(error)
+
+        return AsyncFirebaseError(
+            "Unexpected error has happened when hitting the FCM API",
+            code=FcmErrorCode.UNKNOWN.value,
+            cause=error,
         )
-        return FCMResponse(exception=exc)
+
+    def _handle_error(self, error: httpx.HTTPError) -> FCMResponse:
+        return FCMResponse(exception=self._resolve_exception(error))
 
     def _handle_request_error(self, error: httpx.HTTPError):
         if isinstance(error, httpx.TimeoutException):
@@ -234,7 +214,7 @@ class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
         elif isinstance(error, httpx.ConnectError):
             return UnavailableError(message=f"Failed to establish a connection: {error}", cause=error)
         elif not hasattr(error, "response"):
-            return UnknownError(message="Unknown error while making a remote service call: {error}", cause=error)
+            return UnknownError(message=f"Unknown error while making a remote service call: {error}", cause=error)
 
         return self._get_error_by_status_code(t.cast(httpx.HTTPStatusError, error))
 
@@ -264,7 +244,7 @@ class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
 
         fcm_code = None
         for detail in error_data.get("details", []):
-            if detail.get("@type") == "type.googleapis.com/google.firebase.fcm.v1.FcmError":
+            if detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
                 fcm_code = detail.get("errorCode")
                 break
 
@@ -280,7 +260,11 @@ class FCMResponseHandlerBase(ABC, t.Generic[FCMResponseType]):
         try:
             data = response.json()
         except ValueError:
-            pass
+            logging.getLogger(__name__).warning(
+                "Failed to parse JSON from error response (status %s): %r",
+                response.status_code,
+                response.content,
+            )
 
         error_data = data.get("error", {})
         if not error_data.get("message"):
@@ -298,80 +282,9 @@ class FCMResponseHandler(FCMResponseHandlerBase[FCMResponse]):
         return self._handle_response(response)
 
 
-class FCMBatchResponseHandler(FCMResponseHandlerBase[FCMBatchResponse]):
-    def handle_error(self, error: httpx.HTTPError):
-        fcm_response = self._handle_error(error)
-        return FCMBatchResponse(responses=[fcm_response])
-
-    def handle_response(self, response: httpx.Response):
-        fcm_push_responses = []
-        responses = self._deserialize_batch_response(response)
-        for single_resp in responses:
-            if single_resp.status_code >= 300:
-                exc = httpx.HTTPStatusError("FCM Error", response=single_resp, request=response.request)
-                fcm_push_responses.append(self._handle_error(exc))
-            else:
-                fcm_push_responses.append(self._handle_response(single_resp))
-
-        return FCMBatchResponse(responses=fcm_push_responses)
-
-    @staticmethod
-    def _deserialize_batch_response(response: httpx.Response) -> t.List[httpx.Response]:
-        """Convert batch response into list of `httpx.Response` responses for each multipart.
-
-        :param response: string, headers and body as a string.
-        :return: list of `httpx.Response` responses.
-        """
-        # Prepend with a content-type header so FeedParser can handle it.
-        header = f"content-type: {response.headers['content-type']}\r\n\r\n"
-        # PY3's FeedParser only accepts unicode. So we should decode content here, and encode each payload again.
-        content = response.content.decode()
-        for_parser = f"{header}{content}"
-
-        parser = FeedParser()
-        parser.feed(for_parser)
-        mime_response = parser.close()
-
-        if not mime_response.is_multipart():
-            raise ValueError("Response not in multipart/mixed format.")
-
-        responses = []
-        for part in mime_response.get_payload():
-            request_id = part["Content-ID"].split("-", 1)[-1]  # type: ignore
-            status_line, payload = part.get_payload().split("\n", 1)  # type: ignore
-            _, status_code, _ = status_line.split(" ", 2)
-            status_code = int(status_code)
-
-            # Parse the rest of the response
-            parser = FeedParser()
-            parser.feed(payload)
-            msg = parser.close()
-            msg["status_code"] = t.cast(str, status_code)
-
-            # Create httpx.Response from the parsed headers.
-            resp = httpx.Response(
-                status_code=status_code,
-                headers=httpx.Headers({"Content-Type": msg.get_content_type(), "X-Request-ID": request_id}),
-                content=msg.get_payload(),
-                json=json.loads(msg.get_payload()),  # type: ignore
-            )
-            responses.append(resp)
-
-        return responses
-
-
 class TopicManagementResponseHandler(FCMResponseHandlerBase[TopicManagementResponse]):
     def handle_error(self, error: httpx.HTTPError) -> TopicManagementResponse:
-        exc = (
-            (isinstance(error, httpx.HTTPStatusError) and self._handle_fcm_error(error))
-            or (isinstance(error, httpx.HTTPError) and self._handle_request_error(error))
-            or AsyncFirebaseError(
-                code=FcmErrorCode.UNKNOWN.value,
-                message="Unexpected error has happened when hitting the FCM API",
-                cause=error,
-            )
-        )
-        return TopicManagementResponse(exception=exc)
+        return TopicManagementResponse(exception=self._resolve_exception(error))
 
     def handle_response(self, response: httpx.Response) -> TopicManagementResponse:
         return TopicManagementResponse(response)
