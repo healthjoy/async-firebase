@@ -18,6 +18,7 @@
 * Standardize string formatting on f-strings throughout the codebase.
 * Remove dead code: ``FCMBatchResponseHandler``, ``serialize_mime_message``, ``serialize_batch_request``, MIME-related imports, and ``FCM_BATCH_ENDPOINT``.
 * Update ``README.md``: remove outdated pre-3.0 examples, use ``async with`` context manager and ``Config.build()`` classmethods in all examples, fix deprecated ``datetime.utcnow()`` usage.
+* Improve test coverage 89% → 99%
 
 ## 5.0.0
 * [BREAKING] Drop support of **Python 3.9** and update dependencies.

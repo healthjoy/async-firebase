@@ -9,8 +9,8 @@ import pytest
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
-from async_firebase.client import AsyncFirebaseClient
-from async_firebase.errors import InternalError
+from async_firebase.client import AsyncFirebaseClient, MULTICAST_MESSAGE_MAX_DEVICE_TOKENS, BATCH_MAX_MESSAGES
+from async_firebase.errors import AsyncFirebaseError, InternalError
 from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
@@ -701,3 +701,114 @@ async def test_send_topic_management_unauthenticated(
     assert response.exception is not None
     assert response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
     assert response.exception.cause.response.status_code == 401
+
+
+# ── Context manager & resource cleanup ──────────────────────────────
+
+
+async def test_async_context_manager(fake_service_account):
+    """Test that async context manager properly opens and closes the client."""
+    async with AsyncFirebaseClient() as client:
+        client.creds_from_service_account_info(fake_service_account)
+        # Accessing _client should create the http client
+        _ = client._client
+        assert client._http_client is not None
+        assert not client._http_client.is_closed
+
+    # After exiting, the http client should be closed
+    assert client._http_client is None
+
+
+async def test_close_without_http_client():
+    """Calling close() when no HTTP client has been created should be a no-op."""
+    client = AsyncFirebaseClient()
+    assert client._http_client is None
+    await client.close()
+    assert client._http_client is None
+
+
+async def test_close_already_closed_client():
+    """Calling close() when HTTP client is already closed should be a no-op."""
+    client = AsyncFirebaseClient()
+    _ = client._client  # create the http client
+    await client._http_client.aclose()
+    assert client._http_client.is_closed
+    # close() should handle the already-closed case gracefully
+    await client.close()
+
+
+# ── send_each error branches ────────────────────────────────────────
+
+
+async def test_send_each_too_many_messages(fake_async_fcm_client_w_creds):
+    """send_each should raise ValueError when too many messages are provided."""
+    messages = [Message(token=f"token-{i}", data={"k": "v"}) for i in range(BATCH_MAX_MESSAGES + 1)]
+    with pytest.raises(ValueError, match="Can not send more than"):
+        await fake_async_fcm_client_w_creds.send_each(messages)
+
+
+async def test_send_each_for_multicast_too_many_tokens(fake_async_fcm_client_w_creds):
+    """send_each_for_multicast should raise ValueError when too many tokens."""
+    tokens = [f"token-{i}" for i in range(MULTICAST_MESSAGE_MAX_DEVICE_TOKENS + 1)]
+    multicast = MulticastMessage(data={"k": "v"}, tokens=tokens)
+    with pytest.raises(ValueError, match="may contain up to"):
+        await fake_async_fcm_client_w_creds.send_each_for_multicast(multicast)
+
+
+async def test_send_each_wraps_async_firebase_error(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    """send_each should properly wrap AsyncFirebaseError exceptions from gather."""
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    # Make the send_request raise AsyncFirebaseError
+    original_send_request = fake_async_fcm_client_w_creds.send_request
+
+    call_count = 0
+
+    async def failing_send_request(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise AsyncFirebaseError(code="INTERNAL", message="Something went wrong")
+        return await original_send_request(**kwargs)
+
+    fake_async_fcm_client_w_creds.send_request = failing_send_request
+
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json={"name": f"projects/{creds.project_id}/messages/msg1"},
+    )
+    # Second call will raise, no need for mock response
+
+    messages = [
+        Message(token="token-1", data={"k": "v"}),
+        Message(token="token-2", data={"k": "v"}),
+    ]
+    result = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert isinstance(result, FCMBatchResponse)
+    assert result.success_count == 1
+    assert result.failure_count == 1
+    assert result.responses[0].success
+    assert not result.responses[1].success
+    assert isinstance(result.responses[1].exception, AsyncFirebaseError)
+
+
+async def test_send_each_wraps_unexpected_exception(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    """send_each should wrap unexpected BaseException in AsyncFirebaseError."""
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    original_send_request = fake_async_fcm_client_w_creds.send_request
+
+    async def failing_send_request(**kwargs):
+        raise RuntimeError("unexpected crash")
+
+    fake_async_fcm_client_w_creds.send_request = failing_send_request
+
+    messages = [Message(token="token-1", data={"k": "v"})]
+    result = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert isinstance(result, FCMBatchResponse)
+    assert result.failure_count == 1
+    assert isinstance(result.responses[0].exception, AsyncFirebaseError)
+    assert "unexpected crash" in str(result.responses[0].exception)
