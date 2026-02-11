@@ -35,7 +35,7 @@ h11 = { version = ">=0.16.0" }
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "~4.2"
-cryptography = "~44.0.2"
+cryptography = ">=44.0.2,<46.1.0"
 Faker = "~15.3"
 
 # tests
