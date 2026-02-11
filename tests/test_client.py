@@ -9,8 +9,8 @@ import pytest
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
-from async_firebase.client import AsyncFirebaseClient
-from async_firebase.errors import InternalError
+from async_firebase.client import AsyncFirebaseClient, MULTICAST_MESSAGE_MAX_DEVICE_TOKENS, BATCH_MAX_MESSAGES
+from async_firebase.errors import AsyncFirebaseError, InternalError
 from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
@@ -364,51 +364,6 @@ async def test_send_realistic_payload(fake_async_fcm_client_w_creds, fake_device
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_send_all(fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    creds = fake_async_fcm_client_w_creds._credentials
-    response_data = (
-        "\r\n--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-4440d691-7909-4346-af9a-b44f17638f6c\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb24"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-fdbc3fd2-4031-4c00-88d2-22c9523bb941\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb25"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-222748d1-1388-4c06-a48f-445f7aef19a9\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/0:1612788010922733%7606eb247606eb26"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4--\r\n"
-    )
-
-    httpx_mock.add_response(
-        status_code=200,
-        content=response_data.encode(),
-        headers={"content-type": "multipart/mixed; boundary=batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4"},
-    )
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    messages = [
-        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
-    ]
-    response = await fake_async_fcm_client_w_creds.send_all(messages)
-    assert isinstance(response, FCMBatchResponse)
-    assert response.success_count == 3
-    assert response.failure_count == 0
-    assert response.responses[0].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb24"
-    assert response.responses[1].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb25"
-    assert response.responses[2].message_id == "projects/fake-mobile-app/messages/0:1612788010922733%7606eb247606eb26"
-
-
-@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_send_each_makes_proper_http_calls(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
 ):
@@ -540,175 +495,6 @@ async def test_send_each_for_multicast(
         assert isinstance(message, Message)
         assert message.apns == apns_config
         assert message.token is not None
-
-
-@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_send_all_dry_run(
-    fake_async_fcm_client_w_creds, fake_multi_device_tokens: list, httpx_mock: HTTPXMock
-):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    creds = fake_async_fcm_client_w_creds._credentials
-    response_data = (
-        "\r\n--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-4440d691-7909-4346-af9a-b44f17638f6c\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/fake_message_id"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-fdbc3fd2-4031-4c00-88d2-22c9523bb941\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/fake_message_id"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-222748d1-1388-4c06-a48f-445f7aef19a9\r\n\r\nHTTP/1.1 200 OK\r\nContent-Type: "
-        "application/json; charset=UTF-8\r\nVary: Origin\r\nVary: X-Origin\r\nVary: Referer\r\n\r\n{\n  "
-        f'"name": "projects/{creds.project_id}/messages/fake_message_id"\n}}\n\r\n'
-        "--batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4--\r\n"
-    )
-    httpx_mock.add_response(
-        status_code=200,
-        content=response_data.encode(),
-        headers={"content-type": "multipart/mixed; boundary=batch_llG_9dniIyeFXPERplIRPwpVYtn3RBa4"},
-    )
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    messages = [
-        Message(apns=apns_config, token=fake_device_token) for fake_device_token in fake_multi_device_tokens
-    ]
-    response = await fake_async_fcm_client_w_creds.send_all(messages, dry_run=True)
-
-    assert isinstance(response, FCMBatchResponse)
-    assert response.success_count == 3
-    assert response.failure_count == 0
-    assert response.responses[0].message_id == "projects/fake-mobile-app/messages/fake_message_id"
-    assert response.responses[1].message_id == "projects/fake-mobile-app/messages/fake_message_id"
-    assert response.responses[2].message_id == "projects/fake-mobile-app/messages/fake_message_id"
-
-
-@pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
-async def test_send_multicast_too_many_tokens(
-    fake_async_fcm_client_w_creds,
-    fake_multi_device_tokens: list,
-):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.send_multicast(
-            MulticastMessage(apns=apns_config, tokens=fake_multi_device_tokens),
-            dry_run=True
-        )
-
-
-async def test_send_all_unknown_registration_token(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    response_data = (
-        "\r\n--batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB\r\nContent-Type: application/http\r\nContent-ID: "
-        "response-363ad2c9-a3d1-45f5-b559-6d69a13a880e\r\n\r\nHTTP/1.1 400 Bad Request\r\nVary: Origin\r\nVary: "
-        'X-Origin\r\nVary: Referer\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{\n  "error": {\n    '
-        '"code": 400,\n    "message": "The registration token is not a valid FCM registration token",\n    "status": '
-        '"INVALID_ARGUMENT",\n    "details": [\n      {\n        "@type": '
-        '"type.googleapis.com/google.firebase.fcm.v1.FcmError",\n        "errorCode": "INVALID_ARGUMENT"\n      }\n   '
-        " ]\n  }\n}\n\r\n--batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB--\r\n"
-    )
-    httpx_mock.add_response(
-        status_code=400,
-        content=response_data.encode(),
-        headers={"content-type": "multipart/mixed; boundary=batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB"},
-    )
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
-    response = await fake_async_fcm_client_w_creds.send_all(messages)
-
-    assert isinstance(response, FCMBatchResponse)
-    assert response.success_count == 0
-    assert response.failure_count == 1
-    assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
-    assert response.responses[0].exception.cause.response.status_code == 400
-
-
-async def test_send_response_error_invalid_argument(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    response_data = (
-        '\r\n--batch_H3WKviwlw1OiFBuquMNPomHJtcBwS2Oi\r\n'
-        'Content-Type: application/http\r\n'
-        'Content-ID: response-37b4e119-2d98-4544-852d-082e429c18c2\r\n\r\n'
-        'HTTP/1.1 400 Bad Request\r\n'
-        'Vary: Origin\r\n'
-        'Vary: X-Origin\r\n'
-        'Vary: Referer\r\n'
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n'
-        '{\n "error": {\n "code": 400,\n "message": "Invalid value at \'message.data[1].value\' (TYPE_STRING), 10",\n'
-        ' "status": "INVALID_ARGUMENT",\n "details": [\n {\n "@type": "type.googleapis.com/google.rpc.BadRequest",\n'
-        ' "fieldViolations": [\n {\n "field": "message.data[1].value",\n'
-        ' "description": "Invalid value at \'message.data[1].value\' (TYPE_STRING), 10"\n }\n ]\n }\n ]\n }\n}\n\r\n'
-        '--batch_H3WKviwlw1OiFBuquMNPomHJtcBwS2Oi--\r\n'
-    )
-    httpx_mock.add_response(
-        status_code=400,
-        content=response_data.encode(),
-        headers={"content-type": "multipart/mixed; boundary=batch_HwFDZe-SUCq5qEgCavJPhhi8tA7xJBlB"},
-    )
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    messages = [Message(apns=apns_config, token="qwerty:ytrewq")]
-    response = await fake_async_fcm_client_w_creds.send_all(messages)
-
-    assert isinstance(response, FCMBatchResponse)
-    assert response.success_count == 0
-    assert response.failure_count == 1
-    assert response.responses[0].exception.code == FcmErrorCode.INVALID_ARGUMENT.value
-    assert response.responses[0].exception.cause.response.status_code == 400
-
-
-async def test_send_all_data_has_not_provided(fake_async_fcm_client_w_creds):
-    messages = [Message(token="device_id:device_token")]
-    with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.send_all(messages)
-
-
-@pytest.mark.parametrize("fake_multi_device_tokens", (501, 600, 1000), indirect=True)
-async def test_send_all_too_many_messages(
-    fake_async_fcm_client_w_creds,
-    fake_multi_device_tokens: list,
-):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    apns_config = fake_async_fcm_client_w_creds.build_apns_config(
-        priority="normal",
-        apns_topic="test-push",
-        collapse_key="push",
-        badge=0,
-        category="test-category",
-        custom_data={"foo": "bar"},
-    )
-    with pytest.raises(ValueError):
-        await fake_async_fcm_client_w_creds.send_all(
-            [Message(apns=apns_config, token=device_token) for device_token in fake_multi_device_tokens],
-            dry_run=True
-        )
 
 
 @pytest.mark.parametrize(
@@ -915,3 +701,114 @@ async def test_send_topic_management_unauthenticated(
     assert response.exception is not None
     assert response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
     assert response.exception.cause.response.status_code == 401
+
+
+# ── Context manager & resource cleanup ──────────────────────────────
+
+
+async def test_async_context_manager(fake_service_account):
+    """Test that async context manager properly opens and closes the client."""
+    async with AsyncFirebaseClient() as client:
+        client.creds_from_service_account_info(fake_service_account)
+        # Accessing _client should create the http client
+        _ = client._client
+        assert client._http_client is not None
+        assert not client._http_client.is_closed
+
+    # After exiting, the http client should be closed
+    assert client._http_client is None
+
+
+async def test_close_without_http_client():
+    """Calling close() when no HTTP client has been created should be a no-op."""
+    client = AsyncFirebaseClient()
+    assert client._http_client is None
+    await client.close()
+    assert client._http_client is None
+
+
+async def test_close_already_closed_client():
+    """Calling close() when HTTP client is already closed should be a no-op."""
+    client = AsyncFirebaseClient()
+    _ = client._client  # create the http client
+    await client._http_client.aclose()
+    assert client._http_client.is_closed
+    # close() should handle the already-closed case gracefully
+    await client.close()
+
+
+# ── send_each error branches ────────────────────────────────────────
+
+
+async def test_send_each_too_many_messages(fake_async_fcm_client_w_creds):
+    """send_each should raise ValueError when too many messages are provided."""
+    messages = [Message(token=f"token-{i}", data={"k": "v"}) for i in range(BATCH_MAX_MESSAGES + 1)]
+    with pytest.raises(ValueError, match="Can not send more than"):
+        await fake_async_fcm_client_w_creds.send_each(messages)
+
+
+async def test_send_each_for_multicast_too_many_tokens(fake_async_fcm_client_w_creds):
+    """send_each_for_multicast should raise ValueError when too many tokens."""
+    tokens = [f"token-{i}" for i in range(MULTICAST_MESSAGE_MAX_DEVICE_TOKENS + 1)]
+    multicast = MulticastMessage(data={"k": "v"}, tokens=tokens)
+    with pytest.raises(ValueError, match="may contain up to"):
+        await fake_async_fcm_client_w_creds.send_each_for_multicast(multicast)
+
+
+async def test_send_each_wraps_async_firebase_error(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    """send_each should properly wrap AsyncFirebaseError exceptions from gather."""
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    # Make the send_request raise AsyncFirebaseError
+    original_send_request = fake_async_fcm_client_w_creds.send_request
+
+    call_count = 0
+
+    async def failing_send_request(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise AsyncFirebaseError(code="INTERNAL", message="Something went wrong")
+        return await original_send_request(**kwargs)
+
+    fake_async_fcm_client_w_creds.send_request = failing_send_request
+
+    creds = fake_async_fcm_client_w_creds._credentials
+    httpx_mock.add_response(
+        status_code=200,
+        json={"name": f"projects/{creds.project_id}/messages/msg1"},
+    )
+    # Second call will raise, no need for mock response
+
+    messages = [
+        Message(token="token-1", data={"k": "v"}),
+        Message(token="token-2", data={"k": "v"}),
+    ]
+    result = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert isinstance(result, FCMBatchResponse)
+    assert result.success_count == 1
+    assert result.failure_count == 1
+    assert result.responses[0].success
+    assert not result.responses[1].success
+    assert isinstance(result.responses[1].exception, AsyncFirebaseError)
+
+
+async def test_send_each_wraps_unexpected_exception(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    """send_each should wrap unexpected BaseException in AsyncFirebaseError."""
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+
+    original_send_request = fake_async_fcm_client_w_creds.send_request
+
+    async def failing_send_request(**kwargs):
+        raise RuntimeError("unexpected crash")
+
+    fake_async_fcm_client_w_creds.send_request = failing_send_request
+
+    messages = [Message(token="token-1", data={"k": "v"})]
+    result = await fake_async_fcm_client_w_creds.send_each(messages)
+
+    assert isinstance(result, FCMBatchResponse)
+    assert result.failure_count == 1
+    assert isinstance(result.responses[0].exception, AsyncFirebaseError)
+    assert "unexpected crash" in str(result.responses[0].exception)

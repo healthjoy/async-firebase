@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "async-firebase"
-version = "5.0.0"
+version = "5.1.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -43,7 +43,7 @@ pytest = "~8.3"
 pytest-asyncio = "~0.26"
 pytest-benchmark = "~5.1.0"
 pytest-cov = "~6.1.1"
-pytest-freezegun = "~0.4.2"
+pytest-freezer = "~0.4.9"
 pytest-httpx = "~0.35"
 ruff = ">=0.9.6"
 mypy = "~1.15.0"
