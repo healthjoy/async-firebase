@@ -11,50 +11,20 @@ on:
   workflow_dispatch:
 
 env:
-  POETRY_VERSION: 1.5.1
+  POETRY_VERSION: 1.8.5
 
 jobs:
-  create-virtualenv:
-    runs-on: ubuntu-latest
-    steps:
-      - name: source code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: ${{ env.POETRY_VERSION }}
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install Dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction -vv
-
-      - name: Log currently installed packages and versions
-        run: poetry show
-
   release:
-    needs: create-virtualenv
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: source code
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/checkout@v4
 
       - name: Set up Python
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -64,10 +34,8 @@ jobs:
           virtualenvs-in-project: true
 
       - name: Release to PyPI
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          POETRY_VERSION: ${{ env.POETRY_VERSION }}
         run: |
           poetry build
           poetry config pypi-token.pypi $PYPI_TOKEN
