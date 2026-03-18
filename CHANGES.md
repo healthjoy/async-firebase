@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.1.1
+* Address **CVE-2026-30922**: Denial of Service in pyasn1 via unbounded recursion in the decoder. The transitive dependency ``pyasn1`` is now pinned to 0.6.3+ which includes the fix.
+* Fix CI/CD workflow issues and update outdated actions.
+
 ## 5.1.0
 * [BREAKING] Remove deprecated ``send_all`` and ``send_multicast`` methods. Use ``send_each`` and ``send_each_for_multicast`` instead.
 * Add async context manager support (``async with AsyncFirebaseClient() as client:``) for proper resource cleanup.
