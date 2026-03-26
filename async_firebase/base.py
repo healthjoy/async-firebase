@@ -17,11 +17,13 @@ from google.oauth2 import service_account  # type: ignore
 from async_firebase._config import DEFAULT_REQUEST_LIMITS, DEFAULT_REQUEST_TIMEOUT, RequestLimits, RequestTimeout
 from async_firebase._credentials import CredentialManager
 from async_firebase.messages import FCMResponse, TopicManagementResponse
-from async_firebase.utils import (
-    FCMResponseHandler,
-    TopicManagementResponseHandler,
-    join_url,
+from async_firebase.responses import (
+    handle_fcm_error,
+    handle_fcm_response,
+    handle_topic_error,
+    handle_topic_response,
 )
+from async_firebase.utils import join_url
 
 
 class AsyncClientBase:
@@ -131,14 +133,13 @@ class AsyncClientBase:
             "X-FIREBASE-CLIENT": f"async-firebase/{version('async-firebase')}",
         }
 
-    async def _send_request(
+    async def _send_fcm_request(
         self,
         url: str,
-        response_handler: t.Union[FCMResponseHandler, TopicManagementResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
-    ) -> t.Union[FCMResponse, TopicManagementResponse]:
+    ) -> FCMResponse:
         logging.debug(
             "Requesting POST %s, payload: %s, content: %s, headers: %s",
             url,
@@ -155,72 +156,97 @@ class AsyncClientBase:
             )
             raw_fcm_response.raise_for_status()
         except httpx.HTTPError as exc:
-            response = response_handler.handle_error(exc)
+            return handle_fcm_error(exc)
         else:
             logging.debug(
                 "Response Code: %s, Time spent to make a request: %s",
                 raw_fcm_response.status_code,
                 raw_fcm_response.elapsed,
             )
-            response = response_handler.handle_response(raw_fcm_response)
+            return handle_fcm_response(raw_fcm_response)
 
-        return response
+    async def _send_topic_request(
+        self,
+        url: str,
+        json_payload: t.Optional[t.Dict[str, t.Any]] = None,
+        headers: t.Optional[t.Dict[str, str]] = None,
+        content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
+    ) -> TopicManagementResponse:
+        logging.debug(
+            "Requesting POST %s, payload: %s, content: %s, headers: %s",
+            url,
+            json_payload,
+            content,
+            headers,
+        )
+        try:
+            raw_fcm_response: httpx.Response = await self._client.post(
+                url,
+                json=json_payload,
+                headers=headers or await self.prepare_headers(),
+                content=content,
+            )
+            raw_fcm_response.raise_for_status()
+        except httpx.HTTPError as exc:
+            return handle_topic_error(exc)
+        else:
+            logging.debug(
+                "Response Code: %s, Time spent to make a request: %s",
+                raw_fcm_response.status_code,
+                raw_fcm_response.elapsed,
+            )
+            return handle_topic_response(raw_fcm_response)
 
-    async def send_request(
+    async def send_fcm_request(
         self,
         uri: str,
-        response_handler: t.Union[FCMResponseHandler, TopicManagementResponseHandler],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
         *,
         base_url: t.Optional[str] = None,
         extra_headers: t.Optional[t.Dict[str, str]] = None,
-    ) -> t.Union[FCMResponse, TopicManagementResponse]:
+    ) -> FCMResponse:
         """
-        Sends an HTTP call using the ``httpx`` library.
+        Sends an HTTP call to FCM using the ``httpx`` library.
 
         :param uri: URI to be requested.
-        :param response_handler: the model to handle response.
         :param json_payload: request JSON payload
         :param headers: request headers.
         :param content: request content
         :param base_url: base URL to use (defaults to FCM BASE_URL).
         :param extra_headers: additional headers to merge into the request headers.
-        :return: HTTP response
+        :return: FCMResponse
         """
         url = join_url(base_url or self.BASE_URL, uri)
         if extra_headers:
             headers = headers or await self.prepare_headers()
             headers.update(extra_headers)
-        return await self._send_request(  # type: ignore
-            url=url, response_handler=response_handler, json_payload=json_payload, headers=headers, content=content
-        )
+        return await self._send_fcm_request(url=url, json_payload=json_payload, headers=headers, content=content)
 
-    async def send_iid_request(
+    async def send_topic_request(
         self,
         uri: str,
-        response_handler: TopicManagementResponseHandler,
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
         headers: t.Optional[t.Dict[str, str]] = None,
         content: t.Union[str, bytes, t.Iterable[bytes], t.AsyncIterable[bytes], None] = None,
+        *,
+        base_url: t.Optional[str] = None,
+        extra_headers: t.Optional[t.Dict[str, str]] = None,
     ) -> TopicManagementResponse:
         """
-        Sends an HTTP call using the ``httpx`` library to the IID service for topic management functionality.
+        Sends an HTTP call to the IID service for topic management.
 
         :param uri: URI to be requested.
-        :param response_handler: the model to handle response.
         :param json_payload: request JSON payload
         :param headers: request headers.
         :param content: request content
-        :return: HTTP response
+        :param base_url: base URL to use (defaults to IID_URL).
+        :param extra_headers: additional headers to merge into the request headers.
+        :return: TopicManagementResponse
         """
-        return await self.send_request(  # type: ignore
-            uri=uri,
-            response_handler=response_handler,
-            json_payload=json_payload,
-            headers=headers,
-            content=content,
-            base_url=self.IID_URL,
-            extra_headers=self.IID_HEADERS,
-        )
+        url = join_url(base_url or self.IID_URL, uri)
+        if extra_headers:
+            headers = headers or await self.prepare_headers()
+            headers.update(extra_headers)
+        return await self._send_topic_request(url=url, json_payload=json_payload, headers=headers, content=content)

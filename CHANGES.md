@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.2.0
+* Extract error mapping and response handling into dedicated ``responses`` module. All HTTP-to-domain-error resolution — lookup tables, FCM-specific error detection, transport error mapping — now lives in ``async_firebase.responses`` with four typed public functions: ``handle_fcm_response``, ``handle_fcm_error``, ``handle_topic_response``, ``handle_topic_error``.
+* Extract payload serialization into dedicated ``serialization`` module. Message-to-JSON assembly — APNS encoding, recursive null stripping, validation — now lives in ``async_firebase.serialization`` with a single entry point: ``serialize_message(message, dry_run)``.
+* Absorb ``encoders.py`` into ``serialization`` module. The ``aps_encoder`` function is now part of ``async_firebase.serialization``.
+* Split generic ``_send_request(response_handler)`` in ``AsyncClientBase`` into two statically typed methods: ``send_fcm_request`` → ``FCMResponse`` and ``send_topic_request`` → ``TopicManagementResponse``. Eliminates runtime ``isinstance`` type guards and handler instantiation ceremony.
+* Simplify ``client.py``: remove ``assemble_push_notification`` static method (replaced by ``serialize_message``), drop redundant ``apns_config`` parameter that was always ``message.apns``.
+* Clean up ``utils.py``: now contains only ``join_url`` with zero dependencies on library code (pure inward dependency direction).
+* Backward-compatible handler classes ``FCMResponseHandler`` and ``TopicManagementResponseHandler`` remain available in ``async_firebase.responses`` for external consumers.
+
 ## 5.1.1
 * Address **CVE-2026-30922**: Denial of Service in pyasn1 via unbounded recursion in the decoder. The transitive dependency ``pyasn1`` is now pinned to 0.6.3+ which includes the fix.
 * Fix CI/CD workflow issues and update outdated actions.

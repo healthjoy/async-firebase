@@ -27,13 +27,14 @@ from async_firebase.messages import (
     Notification,
     PushNotification,
 )
-from async_firebase.utils import (
-    FCMResponseHandler,
+from async_firebase.responses import (
     FCM_ERROR_TYPE_PREFIX,
-    cleanup_firebase_message,
-    join_url,
-    remove_null_values,
+    _get_fcm_error_type,
+    handle_fcm_error,
+    handle_fcm_response,
 )
+from async_firebase.serialization import cleanup_firebase_message, remove_null_values
+from async_firebase.utils import join_url
 
 pytestmark = pytest.mark.asyncio
 
@@ -330,12 +331,11 @@ def _make_http_status_error(status_code, json_body=None, content=b""):
 
 
 class TestFCMResponseHandler:
-    """Tests for FCMResponseHandler error dispatch."""
+    """Tests for FCM error dispatch via response_handler module."""
 
     def test_handle_timeout_error(self):
-        handler = FCMResponseHandler()
         error = httpx.ReadTimeout("Connection read timed out")
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert not result.success
@@ -343,9 +343,8 @@ class TestFCMResponseHandler:
         assert "Timed out" in str(result.exception)
 
     def test_handle_connect_error(self):
-        handler = FCMResponseHandler()
         error = httpx.ConnectError("Failed to connect")
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert not result.success
@@ -353,9 +352,8 @@ class TestFCMResponseHandler:
         assert "Failed to establish a connection" in str(result.exception)
 
     def test_handle_generic_http_error_without_response(self):
-        handler = FCMResponseHandler()
         error = httpx.DecodingError("decode failure")
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert not result.success
@@ -364,7 +362,6 @@ class TestFCMResponseHandler:
 
     def test_handle_http_status_error_with_fcm_error_type(self):
         """When the response contains an FCM-specific error type, use the FCM error mapping."""
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             400,
             json_body={
@@ -378,13 +375,12 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, UnregisteredError)
 
     def test_handle_http_status_error_with_quota_exceeded(self):
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             429,
             json_body={
@@ -398,13 +394,12 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, QuotaExceededError)
 
     def test_handle_http_status_error_with_sender_id_mismatch(self):
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             403,
             json_body={
@@ -418,13 +413,12 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, SenderIdMismatchError)
 
     def test_handle_http_status_error_with_third_party_auth_error(self):
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             401,
             json_body={
@@ -438,13 +432,12 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, ThirdPartyAuthError)
 
     def test_handle_http_status_error_with_apns_auth_error(self):
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             401,
             json_body={
@@ -458,14 +451,13 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, ThirdPartyAuthError)
 
     def test_handle_http_status_error_falls_back_to_status_code(self):
         """When no FCM error type is present, fall back to HTTP status code mapping."""
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             500,
             json_body={
@@ -476,14 +468,13 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, InternalError)
 
     def test_handle_http_status_error_unknown_status_code(self):
         """When HTTP status code is not in the mapping, fall back to UnknownError."""
-        handler = FCMResponseHandler()
         error = _make_http_status_error(
             418,
             json_body={
@@ -492,14 +483,13 @@ class TestFCMResponseHandler:
                 }
             },
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert isinstance(result.exception, UnknownError)
 
     def test_handle_http_status_error_non_json_response(self):
         """When the error response is not valid JSON, still produce an error."""
-        handler = FCMResponseHandler()
         request = httpx.Request("POST", "https://fcm.googleapis.com/v1/test")
         response = httpx.Response(502, request=request, content=b"Bad Gateway")
         error = httpx.HTTPStatusError(
@@ -507,7 +497,7 @@ class TestFCMResponseHandler:
             request=request,
             response=response,
         )
-        result = handler.handle_error(error)
+        result = handle_fcm_error(error)
 
         assert isinstance(result, FCMResponse)
         assert not result.success
@@ -515,14 +505,13 @@ class TestFCMResponseHandler:
         assert "Unexpected HTTP response" in str(result.exception)
 
     def test_handle_response_success(self):
-        handler = FCMResponseHandler()
         request = httpx.Request("POST", "https://fcm.googleapis.com/v1/test")
         response = httpx.Response(
             200,
             request=request,
             json={"name": "projects/test/messages/123"},
         )
-        result = handler.handle_response(response)
+        result = handle_fcm_response(response)
 
         assert isinstance(result, FCMResponse)
         assert result.success
@@ -530,14 +519,12 @@ class TestFCMResponseHandler:
 
     def test_get_fcm_error_type_empty_data(self):
         """_get_fcm_error_type should return None for empty error data."""
-        handler = FCMResponseHandler()
-        assert handler._get_fcm_error_type({}) is None
-        assert handler._get_fcm_error_type(None) is None
+        assert _get_fcm_error_type({}) is None
+        assert _get_fcm_error_type(None) is None
 
     def test_get_fcm_error_type_no_matching_details(self):
         """_get_fcm_error_type should return None when no FCM error type in details."""
-        handler = FCMResponseHandler()
-        result = handler._get_fcm_error_type({
+        result = _get_fcm_error_type({
             "message": "some error",
             "details": [{"@type": "some.other.type", "errorCode": "SOMETHING"}],
         })
@@ -545,6 +532,5 @@ class TestFCMResponseHandler:
 
     def test_get_fcm_error_type_no_details_key(self):
         """_get_fcm_error_type should return None when no details key at all."""
-        handler = FCMResponseHandler()
-        result = handler._get_fcm_error_type({"message": "some error"})
+        result = _get_fcm_error_type({"message": "some error"})
         assert result is None
