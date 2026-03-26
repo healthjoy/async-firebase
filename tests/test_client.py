@@ -10,7 +10,8 @@ from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
 from async_firebase.client import AsyncFirebaseClient, MULTICAST_MESSAGE_MAX_DEVICE_TOKENS, BATCH_MAX_MESSAGES
-from async_firebase.errors import AsyncFirebaseError, InternalError
+from async_firebase.errors import AsyncFirebaseError, FcmErrorCode, InternalError
+from async_firebase.serialization import serialize_message
 from async_firebase.messages import (
     AndroidConfig,
     AndroidNotification,
@@ -30,7 +31,6 @@ from async_firebase.messages import (
     TopicManagementErrorInfo,
     Visibility,
 )
-from async_firebase.utils import FcmErrorCode
 
 
 pytestmark = pytest.mark.asyncio
@@ -498,10 +498,9 @@ async def test_send_each_for_multicast(
 
 
 @pytest.mark.parametrize(
-    "apns_config, message, exp_push_notification",
+    "message, exp_push_notification",
     (
         (
-            None,
             Message(
                 token="token-1",
                 data={"text": "hello"},
@@ -512,10 +511,10 @@ async def test_send_each_for_multicast(
             },
         ),
         (
-            APNSConfig(),
             Message(
                 token="token-1",
                 data={"text": "hello"},
+                apns=APNSConfig(),
             ),
             {
                 "message": {"token": "token-1", "data": {"text": "hello"}},
@@ -523,19 +522,21 @@ async def test_send_each_for_multicast(
             },
         ),
         (
-            APNSConfig(
-                payload=APNSPayload(
-                    aps=Aps(
-                        alert="push-text",
-                        badge=5,
-                        sound="default",
-                        content_available=True,
-                        category="NEW_MESSAGE",
-                        mutable_content=False,
+            Message(
+                token="token-1",
+                apns=APNSConfig(
+                    payload=APNSPayload(
+                        aps=Aps(
+                            alert="push-text",
+                            badge=5,
+                            sound="default",
+                            content_available=True,
+                            category="NEW_MESSAGE",
+                            mutable_content=False,
+                        )
                     )
-                )
+                ),
             ),
-            Message(token="token-1", apns=APNSConfig(payload=APNSPayload())),
             {
                 "message": {
                     "token": "token-1",
@@ -557,10 +558,8 @@ async def test_send_each_for_multicast(
         ),
     ),
 )
-def test_assemble_push_notification(fake_async_fcm_client_w_creds, apns_config, message, exp_push_notification):
-    push_notification = fake_async_fcm_client_w_creds.assemble_push_notification(
-        apns_config=apns_config, dry_run=True, message=message
-    )
+def test_serialize_message(message, exp_push_notification):
+    push_notification = serialize_message(message, dry_run=True)
     assert push_notification == exp_push_notification
 
 
@@ -759,19 +758,19 @@ async def test_send_each_wraps_async_firebase_error(fake_async_fcm_client_w_cred
     """send_each should properly wrap AsyncFirebaseError exceptions from gather."""
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
 
-    # Make the send_request raise AsyncFirebaseError
-    original_send_request = fake_async_fcm_client_w_creds.send_request
+    # Make the send_fcm_request raise AsyncFirebaseError
+    original_send_fcm_request = fake_async_fcm_client_w_creds.send_fcm_request
 
     call_count = 0
 
-    async def failing_send_request(**kwargs):
+    async def failing_send_fcm_request(**kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
             raise AsyncFirebaseError(code="INTERNAL", message="Something went wrong")
-        return await original_send_request(**kwargs)
+        return await original_send_fcm_request(**kwargs)
 
-    fake_async_fcm_client_w_creds.send_request = failing_send_request
+    fake_async_fcm_client_w_creds.send_fcm_request = failing_send_fcm_request
 
     creds = fake_async_fcm_client_w_creds._credentials
     httpx_mock.add_response(
@@ -798,12 +797,10 @@ async def test_send_each_wraps_unexpected_exception(fake_async_fcm_client_w_cred
     """send_each should wrap unexpected BaseException in AsyncFirebaseError."""
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
 
-    original_send_request = fake_async_fcm_client_w_creds.send_request
-
-    async def failing_send_request(**kwargs):
+    async def failing_send_fcm_request(**kwargs):
         raise RuntimeError("unexpected crash")
 
-    fake_async_fcm_client_w_creds.send_request = failing_send_request
+    fake_async_fcm_client_w_creds.send_fcm_request = failing_send_fcm_request
 
     messages = [Message(token="token-1", data={"k": "v"})]
     result = await fake_async_fcm_client_w_creds.send_each(messages)

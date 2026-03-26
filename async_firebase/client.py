@@ -7,12 +7,9 @@ to authorize request which is being made to Firebase.
 
 import asyncio
 import collections
-import logging
 import typing as t
-from dataclasses import replace
 
 from async_firebase.base import AsyncClientBase, RequestLimits, RequestTimeout  # noqa: F401
-from async_firebase.encoders import aps_encoder
 from async_firebase.errors import AsyncFirebaseError
 from async_firebase.messages import (
     AndroidConfig,
@@ -21,15 +18,10 @@ from async_firebase.messages import (
     FCMResponse,
     Message,
     MulticastMessage,
-    PushNotification,
     TopicManagementResponse,
     WebpushConfig,
 )
-from async_firebase.utils import (
-    FCMResponseHandler,
-    TopicManagementResponseHandler,
-    cleanup_firebase_message,
-)
+from async_firebase.serialization import serialize_message
 
 
 BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
@@ -41,34 +33,6 @@ class AsyncFirebaseClient(AsyncClientBase):
     The AsyncFirebaseClient relies on Service Account to enable us making a request. To get more about Service Account
     please refer to https://firebase.google.com/support/guides/service-accounts
     """
-
-    @staticmethod
-    def assemble_push_notification(
-        *,
-        apns_config: t.Optional[APNSConfig],
-        message: Message,
-        dry_run: bool,
-    ) -> t.Dict[str, t.Any]:
-        """
-        Assemble ``messages.PushNotification`` object properly.
-
-        :param apns_config: instance of ``messages.APNSConfig``
-        :param dry_run: A boolean indicating whether to run the operation in dry run mode
-        :param message: an instance of ``messages.Message``
-        :return: dictionary with push notification data ready to send
-        """
-        if apns_config and apns_config.payload:
-            # avoid mutation of active message
-            message.apns = replace(message.apns)  # type: ignore
-            message.apns.payload = aps_encoder(apns_config.payload.aps)  # type: ignore
-
-        push_notification: t.Dict[str, t.Any] = cleanup_firebase_message(
-            PushNotification(message=message, validate_only=dry_run)
-        )
-        if len(push_notification["message"]) == 1:
-            logging.warning("No data has been provided to construct push notification payload")
-            raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
-        return push_notification
 
     # Backward-compatible wrappers delegating to classmethod constructors on the config dataclasses.
     # Prefer calling AndroidConfig.build(), APNSConfig.build(), WebpushConfig.build() directly.
@@ -123,16 +87,11 @@ class AsyncFirebaseClient(AsyncClientBase):
                         }
                     }
         """
-        push_notification = self.assemble_push_notification(apns_config=message.apns, dry_run=dry_run, message=message)
-
-        response = await self.send_request(
-            uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
+        push_notification = serialize_message(message, dry_run=dry_run)
+        return await self.send_fcm_request(
+            uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),
             json_payload=push_notification,
-            response_handler=FCMResponseHandler(),
         )
-        if not isinstance(response, FCMResponse):
-            raise ValueError("Wrong return type, perhaps because of a response handler misuse.")
-        return response
 
     async def send_each(
         self,
@@ -143,16 +102,12 @@ class AsyncFirebaseClient(AsyncClientBase):
         if len(messages) > BATCH_MAX_MESSAGES:
             raise ValueError(f"Can not send more than {BATCH_MAX_MESSAGES} messages in a single batch")
 
-        push_notifications = [
-            self.assemble_push_notification(apns_config=message.apns, dry_run=dry_run, message=message)
-            for message in messages
-        ]
+        push_notifications = [serialize_message(msg, dry_run=dry_run) for msg in messages]
 
         request_tasks: t.Collection[collections.abc.Awaitable] = [
-            self.send_request(
-                uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),  # type: ignore
+            self.send_fcm_request(
+                uri=self.FCM_ENDPOINT.format(project_id=self._credentials.project_id),
                 json_payload=push_notification,
-                response_handler=FCMResponseHandler(),
             )
             for push_notification in push_notifications
         ]
@@ -198,12 +153,11 @@ class AsyncFirebaseClient(AsyncClientBase):
             "to": f"/topics/{topic_name}",
             "registration_tokens": device_tokens,
         }
-        response = await self.send_iid_request(
+        return await self.send_topic_request(
             uri=action,
             json_payload=payload,
-            response_handler=TopicManagementResponseHandler(),
+            extra_headers=self.IID_HEADERS,
         )
-        return response
 
     async def subscribe_devices_to_topic(self, device_tokens: t.List[str], topic_name: str) -> TopicManagementResponse:
         """

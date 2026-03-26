@@ -1,6 +1,6 @@
 import pytest
 
-from async_firebase.encoders import aps_encoder
+from async_firebase.serialization import aps_encoder
 from async_firebase.messages import Aps, ApsAlert
 
 
