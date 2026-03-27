@@ -73,16 +73,13 @@ def encode_android_notification(notification: AndroidNotification) -> t.Dict[str
     result: t.Dict[str, t.Any] = {}
 
     if notification.visibility is not None:
-        vis = notification.visibility.value if isinstance(notification.visibility, Enum) else notification.visibility
-        result["visibility"] = f"VISIBILITY_{vis.upper()}"
+        result["visibility"] = f"VISIBILITY_{notification.visibility.upper()}"
 
     if notification.proxy is not None:
-        proxy = notification.proxy.value if isinstance(notification.proxy, Enum) else notification.proxy
-        result["proxy"] = proxy.upper()
+        result["proxy"] = notification.proxy.upper()
 
     if notification.priority is not None:
-        prio = notification.priority.value if isinstance(notification.priority, Enum) else notification.priority
-        result["priority"] = f"PRIORITY_{prio.upper()}"
+        result["priority"] = f"PRIORITY_{notification.priority.upper()}"
 
     if notification.light_settings is not None:
         result["light_settings"] = encode_light_settings(notification.light_settings)

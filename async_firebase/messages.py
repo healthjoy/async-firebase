@@ -16,7 +16,7 @@ APNS_PRIORITY_HIGH = 10
 APNS_PRIORITY_NORMAL = 5
 
 
-class Visibility(Enum):
+class Visibility(str, Enum):
     """Available visibility levels.
 
     To get more insights please follow the reference
@@ -28,7 +28,7 @@ class Visibility(Enum):
     SECRET = "secret"
 
 
-class NotificationProxy(Enum):
+class NotificationProxy(str, Enum):
     """Available proxy behaviors.
 
     To get more insights please follow the reference
@@ -40,7 +40,7 @@ class NotificationProxy(Enum):
     IF_PRIORITY_LOWERED = "if_priority_lowered"
 
 
-class AndroidNotificationPriority(Enum):
+class AndroidNotificationPriority(str, Enum):
     """Notification priority levels for Android.
 
     Controls the UI importance in the notification shade.
