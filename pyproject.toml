@@ -1,18 +1,18 @@
-[tool.poetry]
+[project]
 name = "async-firebase"
 version = "6.0.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
-    "Oleksandr Omyshev <oomyshev@healthjoy.com>"
+    { name = "Oleksandr Omyshev", email = "oomyshev@healthjoy.com" },
 ]
 maintainers = [
-    "Healthjoy Developers <developers@healthjoy.com>",
-    "Oleksandr Omyshev <oomyshev@healthjoy.com>"
+    { name = "Healthjoy Developers", email = "developers@healthjoy.com" },
+    { name = "Oleksandr Omyshev", email = "oomyshev@healthjoy.com" },
 ]
 readme = "README.md"
-repository = "https://github.com/healthjoy/async-firebase"
 keywords = ["async", "asyncio", "firebase", "fcm", "python3", "push-notifications"]
+requires-python = ">=3.10,<3.15"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -25,28 +25,68 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
+dependencies = [
+    "google-auth~=2.38.0",
+    "httpx[http2]>=0.28.1,<1.0.0",
+    "h11>=0.16.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.15"
+[project.urls]
+Repository = "https://github.com/healthjoy/async-firebase"
 
-google-auth = "~2.38.0"
-httpx = { version = ">=0.28.1,<1.0.0", extras = ["http2"] }
-h11 = { version = ">=0.16.0" }
+[dependency-groups]
+dev = [
+    "pre-commit~=4.2",
+    "cryptography>=44.0.2,<46.1.0",
+    "Faker~=15.3",
+    "pytest~=8.3",
+    "pytest-asyncio~=0.26",
+    "pytest-benchmark~=5.1.0",
+    "pytest-cov~=6.1.1",
+    "pytest-freezer~=0.4.9",
+    "pytest-httpx~=0.35",
+    "ruff>=0.9.6",
+    "mypy~=1.15.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pre-commit = "~4.2"
-cryptography = ">=44.0.2,<46.1.0"
-Faker = "~15.3"
+[tool.pytest.ini_options]
+addopts = "--pyargs -ra --no-cov-on-fail --disable-pytest-warnings --cache-clear --cov=async_firebase --cov-config=pyproject.toml --cov-branch --cov-report=xml --cov-report=term"
+norecursedirs = [
+    ".eggs",
+    "*.egg",
+    ".ropeproject",
+    "build",
+]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+console_output_style = "progress"
 
-# tests
-pytest = "~8.3"
-pytest-asyncio = "~0.26"
-pytest-benchmark = "~5.1.0"
-pytest-cov = "~6.1.1"
-pytest-freezer = "~0.4.9"
-pytest-httpx = "~0.35"
-ruff = ">=0.9.6"
-mypy = "~1.15.0"
+[tool.mypy]
+python_version = "3.10"
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["./async_firebase"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "pragma: no cover",
+    "Should not reach here",
+    "def __repr__",
+    "except ImportError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
 
 [tool.ruff]
 line-length = 120
@@ -67,5 +107,5 @@ lines-after-imports = 2
 quote-style = "preserve"
 
 [build-system]
-requires = ["poetry>=1.0"]
-build-backend = "poetry.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
