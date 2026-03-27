@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 140">
+  <defs>
+    <linearGradient id="flame" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#FF6F00"/>
+      <stop offset="50%" stop-color="#FFA000"/>
+      <stop offset="100%" stop-color="#FFCA28"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#42A5F5"/>
+      <stop offset="100%" stop-color="#1565C0"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#42A5F5" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#1565C0" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Circular async ring (two rotating arc segments) -->
+  <g transform="translate(70,70)">
+    <!-- Outer ring arcs representing async loop -->
+    <path d="M 0,-52 A 52,52 0 0,1 45,26" fill="none" stroke="url(#ring)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 0,52 A 52,52 0 0,1 -45,-26" fill="none" stroke="url(#ring)" stroke-width="4" stroke-linecap="round"/>
+    <!-- Arrowheads on arcs -->
+    <polygon points="45,26 38,18 50,20" fill="#1565C0" opacity="0.7"/>
+    <polygon points="-45,-26 -38,-18 -50,-20" fill="#1565C0" opacity="0.7"/>
+
+    <!-- Firebase-inspired flame -->
+    <path d="
+      M 0,-32
+      C 8,-20 18,-10 18,4
+      C 18,14 12,24 0,30
+      C -12,24 -18,14 -18,4
+      C -18,-10 -8,-20 0,-32
+      Z
+    " fill="url(#flame)"/>
+
+    <!-- Inner flame highlight -->
+    <path d="
+      M 0,-14
+      C 5,-8 10,-2 10,6
+      C 10,12 6,17 0,20
+      C -6,17 -10,12 -10,6
+      C -10,-2 -5,-8 0,-14
+      Z
+    " fill="#FFF3E0" opacity="0.7"/>
+
+    <!-- Lightning bolt overlay (async) -->
+    <path d="
+      M 2,-22
+      L -6,-2
+      L 1,-2
+      L -3,20
+      L 8,0
+      L 1,0
+      Z
+    " fill="url(#bolt)" opacity="0.85"/>
+  </g>
+
+  <!-- Library name -->
+  <text x="138" y="62" font-family="'SF Mono','Fira Code','Cascadia Code','JetBrains Mono','Consolas',monospace" font-size="34" font-weight="700" fill="#212121" letter-spacing="-0.5">
+    async<tspan fill="#FF8F00">-</tspan><tspan fill="#FF6F00">firebase</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="138" y="90" font-family="'SF Mono','Fira Code','Cascadia Code','JetBrains Mono','Consolas',monospace" font-size="13" fill="#757575" letter-spacing="0.3">
+    Lightweight async Python client for FCM
+  </text>
+
+  <!-- Decorative dots (like async signals) -->
+  <circle cx="138" cy="108" r="3" fill="#42A5F5" opacity="0.6"/>
+  <circle cx="150" cy="108" r="3" fill="#FFA000" opacity="0.6"/>
+  <circle cx="162" cy="108" r="3" fill="#42A5F5" opacity="0.6"/>
+</svg>

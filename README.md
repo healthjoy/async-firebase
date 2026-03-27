@@ -1,6 +1,10 @@
-# async-firebase
+<p align="center">
+  <img src="logo.svg" alt="async-firebase logo" width="480">
+</p>
 
-> Lightweight asynchronous Python client for Firebase Cloud Messaging (FCM)
+<p align="center">
+  <em>Lightweight asynchronous Python client for Firebase Cloud Messaging (FCM)</em>
+</p>
 
 [![PyPI download month](https://img.shields.io/pypi/dm/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
 [![PyPI version fury.io](https://badge.fury.io/py/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
