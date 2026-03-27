@@ -1,4 +1,6 @@
-# async-firebase is a lightweight asynchronous client to interact with Firebase Cloud Messaging for sending push notification to Android and iOS devices
+# async-firebase
+
+> Lightweight asynchronous Python client for Firebase Cloud Messaging (FCM)
 
 [![PyPI download month](https://img.shields.io/pypi/dm/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
 [![PyPI version fury.io](https://badge.fury.io/py/async-firebase.svg)](https://pypi.python.org/pypi/async-firebase/)
@@ -7,76 +9,29 @@
 [![CI](https://github.com/healthjoy/async-firebase/actions/workflows/ci.yml/badge.svg)](https://github.com/healthjoy/async-firebase/actions/workflows/ci.yml)
 [![Codacy coverage](https://img.shields.io/codacy/coverage/b6a59cdf5ca64eab9104928d4f9bbb97?logo=codacy)](https://app.codacy.com/gh/healthjoy/async-firebase/dashboard)
 
-
   * Free software: MIT license
   * Requires: Python 3.10+
 
 ## Features
 
   * Extremely lightweight and does not rely on ``firebase-admin`` which is hefty
-  * Send push notifications to Android and iOS devices
-  * Send multicast push notifications to Android and iOS devices
-  * Send Web push notifications
-  * Set TTL (time to live) for notifications
-  * Set priority for notifications
-  * Set collapse-key for notifications
-  * Dry-run mode for testing purpose
-  * Topic Management
-  * Async context manager support for proper resource cleanup
+  * Send push notifications to Android, iOS, and Web devices
+  * Multicast push notifications (up to 500 tokens per call)
+  * Send to topics and topic conditions
+  * TTL, priority, and collapse-key support
+  * Dry-run mode for testing
+  * Topic management (subscribe/unsubscribe devices)
+  * Async context manager for proper resource cleanup
 
 ## Installation
-To install `async-firebase`, simply execute the following command in a terminal:
-```shell script
-$ pip install async-firebase
+
+```shell
+pip install async-firebase
 ```
 
-## Getting started
+## Quick Start
 
-### Building message configs
-
-The recommended way to build platform-specific configs is via the ``.build()`` classmethod on each config dataclass:
-
-```python3
-from async_firebase import AndroidConfig, APNSConfig, WebpushConfig
-
-# Android
-android_config = AndroidConfig.build(
-    priority="high",
-    ttl=2419200,
-    collapse_key="push",
-    data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
-    title="Store Changes",
-    body="Recent store changes",
-)
-
-# iOS (APNs)
-apns_config = APNSConfig.build(
-    priority="normal",
-    ttl=2419200,
-    apns_topic="store-updated",
-    collapse_key="push",
-    title="Store Changes",
-    alert="Recent store changes",
-    badge=1,
-    category="test-category",
-    custom_data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
-)
-
-# Web push
-webpush_config = WebpushConfig.build(
-    data={"discount": "15%"},
-    title="Store Changes",
-    body="Recent store changes",
-    link="https://example.com/store",
-)
-```
-
-> **Note:** ``client.build_android_config()``, ``client.build_apns_config()``, and ``client.build_webpush_config()``
-> are deprecated and will be removed in a future version. Use ``AndroidConfig.build()``, ``APNSConfig.build()``,
-> and ``WebpushConfig.build()`` directly instead.
-
-### Sending push notification to Android
-```python3
+```python
 import asyncio
 
 from async_firebase import AsyncFirebaseClient, Message, AndroidConfig
@@ -86,197 +41,227 @@ async def main():
     async with AsyncFirebaseClient() as client:
         client.creds_from_service_account_file("secret-store/mobile-app-79225efac4bb.json")
 
-        # or using dictionary object
+        # or using a dictionary
         # client.creds_from_service_account_info({...})
-
-        device_token: str = "..."
 
         android_config = AndroidConfig.build(
             priority="high",
             ttl=2419200,
             collapse_key="push",
-            data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
             title="Store Changes",
             body="Recent store changes",
+            data={"discount": "15%", "key_1": "value_1"},
         )
-        message = Message(android=android_config, token=device_token)
+        message = Message(android=android_config, token="device-token-here")
         response = await client.send(message)
 
         print(response.success, response.message_id)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Sending push notification to iOS
-```python3
-import asyncio
+``send()`` returns an ``FCMResponse`` with ``success`` (bool), ``message_id`` (str), and ``exception`` (on failure) attributes.
 
-from async_firebase import AsyncFirebaseClient, Message, APNSConfig
+## Platform Configs
 
+Build platform-specific configs using the ``.build()`` classmethod:
 
-async def main():
-    async with AsyncFirebaseClient() as client:
-        client.creds_from_service_account_file("secret-store/mobile-app-79225efac4bb.json")
+### Android
 
-        # or using dictionary object
-        # client.creds_from_service_account_info({...})
+```python
+from async_firebase import AndroidConfig
 
-        device_token: str = "..."
-
-        apns_config = APNSConfig.build(
-            priority="normal",
-            ttl=2419200,
-            apns_topic="store-updated",
-            collapse_key="push",
-            title="Store Changes",
-            alert="Recent store changes",
-            badge=1,
-            category="test-category",
-            custom_data={"discount": "15%", "key_1": "value_1", "timestamp": "2021-02-24T12:00:15"},
-        )
-        message = Message(apns=apns_config, token=device_token)
-        response = await client.send(message)
-
-        print(response.success, response.message_id)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+android_config = AndroidConfig.build(
+    priority="high",
+    ttl=2419200,
+    collapse_key="push",
+    data={"discount": "15%", "key_1": "value_1"},
+    title="Store Changes",
+    body="Recent store changes",
+)
 ```
 
-### Sending Web push notification
-```python3
-import asyncio
+New in v6.0: ``image``, ``ticker``, ``sticky``, ``event_timestamp``, ``local_only``, ``notification_priority``, ``vibrate_timings_millis``, ``default_vibrate_timings``, ``default_sound``, ``light_settings``, ``default_light_settings``, ``fcm_options``, ``direct_boot_ok``, ``bandwidth_constrained_ok``, ``restricted_satellite_ok``.
 
-from async_firebase import AsyncFirebaseClient, Message, WebpushConfig
+### iOS (APNs)
 
+```python
+from async_firebase import APNSConfig
 
-async def main():
-    async with AsyncFirebaseClient() as client:
-        client.creds_from_service_account_file("secret-store/mobile-app-79225efac4bb.json")
-
-        # or using dictionary object
-        # client.creds_from_service_account_info({...})
-
-        device_token: str = "..."
-
-        webpush_config = WebpushConfig.build(
-            data={"discount": "15%"},
-            title="Store Changes",
-            body="Recent store changes",
-            link="https://example.com/store",
-        )
-        message = Message(webpush=webpush_config, token=device_token)
-        response = await client.send(message)
-
-        print(response.success, response.message_id)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+apns_config = APNSConfig.build(
+    priority="normal",
+    ttl=2419200,
+    apns_topic="store-updated",
+    collapse_key="push",
+    title="Store Changes",
+    alert="Recent store changes",
+    badge=1,
+    category="test-category",
+    custom_data={"discount": "15%", "key_1": "value_1"},
+)
 ```
 
-Each ``send()`` call returns an ``FCMResponse`` with ``success`` (bool) and ``message_id`` (str) attributes:
+New in v6.0: ``subtitle``, ``sound`` as ``CriticalSound``, ``fcm_options``, ``live_activity_token``.
 
-```shell script
-True projects/mobile-app/messages/0:2367799010922733%7606eb557606ebff
+### Web Push
+
+```python
+from async_firebase import WebpushConfig
+
+webpush_config = WebpushConfig.build(
+    data={"discount": "15%"},
+    title="Store Changes",
+    body="Recent store changes",
+    link="https://example.com/store",
+)
 ```
 
-### Manually constructing a message
-```python3
-import asyncio
+> **Note:** ``client.build_android_config()``, ``client.build_apns_config()``, and ``client.build_webpush_config()``
+> are deprecated. Use the ``.build()`` classmethods directly.
+
+## Multicast
+
+Send notifications to up to 500 devices at once:
+
+```python
+from async_firebase import AsyncFirebaseClient, MulticastMessage, AndroidConfig
+
+async with AsyncFirebaseClient() as client:
+    client.creds_from_service_account_info({...})
+
+    android_config = AndroidConfig.build(priority="high", title="News", body="Breaking news!")
+
+    multicast = MulticastMessage(
+        android=android_config,
+        tokens=["token_1", "token_2", "token_3"],
+    )
+    batch_response = await client.send_each_for_multicast(multicast)
+
+    for resp in batch_response.responses:
+        print(resp.success, resp.message_id)
+```
+
+``send_each_for_multicast()`` returns an ``FCMBatchResponse`` containing individual ``FCMResponse`` objects for each token.
+
+## Topics
+
+### Sending to a topic
+
+```python
+from async_firebase import AsyncFirebaseClient, Message, AndroidConfig
+
+async with AsyncFirebaseClient() as client:
+    client.creds_from_service_account_info({...})
+
+    message = Message(
+        android=AndroidConfig.build(priority="high", title="News", body="Update!"),
+        topic="breaking-news",
+    )
+    response = await client.send(message)
+```
+
+A ``Message`` accepts exactly one of: ``token``, ``topic``, or ``condition``.
+
+### Managing topic subscriptions
+
+```python
+from async_firebase import AsyncFirebaseClient
+
+async with AsyncFirebaseClient() as client:
+    client.creds_from_service_account_info({...})
+
+    # Subscribe
+    response = await client.subscribe_devices_to_topic(
+        device_tokens=["token_1", "token_2"],
+        topic_name="breaking-news",
+    )
+
+    # Unsubscribe
+    response = await client.unsubscribe_devices_from_topic(
+        device_tokens=["token_1", "token_2"],
+        topic_name="breaking-news",
+    )
+```
+
+## Advanced Usage
+
+### Dry-run mode
+
+Validate messages without actually sending them:
+
+```python
+response = await client.send(message, dry_run=True)
+```
+
+Dry-run is available on ``send()``, ``send_each()``, and ``send_each_for_multicast()``.
+
+### Direct dataclass construction
+
+For full control, construct message dataclasses directly instead of using ``.build()``:
+
+```python
 from datetime import datetime, timezone
-
 from async_firebase.messages import APNSConfig, APNSPayload, ApsAlert, Aps, Message
-from async_firebase import AsyncFirebaseClient
 
-
-async def main():
-    apns_config = APNSConfig(**{
-        "headers": {
-            "apns-expiration": str(int(datetime.now(timezone.utc).timestamp()) + 7200),
-            "apns-priority": "10",
-            "apns-topic": "test-topic",
-            "apns-collapse-id": "something",
-        },
-        "payload": APNSPayload(**{
-            "aps": Aps(**{
-                "alert": ApsAlert(title="some-title", body="alert-message"),
-                "badge": 0,
-                "sound": "default",
-                "content_available": True,
-                "category": "some-category",
-                "mutable_content": False,
-                "custom_data": {
-                    "link": "https://link-to-somewhere.com",
-                    "ticket_id": "YXZ-655512",
-                },
-            })
-        })
-    })
-
-    device_token: str = "..."
-
-    async with AsyncFirebaseClient() as client:
-        client.creds_from_service_account_info({...})
-        message = Message(apns=apns_config, token=device_token)
-        response = await client.send(message)
-        print(response.success)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### Topic Management
-You can subscribe and unsubscribe client app instances in bulk approach by passing a list of registration tokens to the subscription method to subscribe the corresponding devices to a topic:
-```python3
-import asyncio
-
-from async_firebase import AsyncFirebaseClient
-
-
-async def main():
-    device_tokens: list[str] = ["...", "..."]
-
-    async with AsyncFirebaseClient() as client:
-        client.creds_from_service_account_info({...})
-        response = await client.subscribe_devices_to_topic(
-            device_tokens=device_tokens, topic_name="some-topic"
+apns_config = APNSConfig(
+    headers={
+        "apns-expiration": str(int(datetime.now(timezone.utc).timestamp()) + 7200),
+        "apns-priority": "10",
+        "apns-topic": "test-topic",
+        "apns-collapse-id": "something",
+    },
+    payload=APNSPayload(
+        aps=Aps(
+            alert=ApsAlert(title="some-title", body="alert-message"),
+            badge=0,
+            sound="default",
+            content_available=True,
+            category="some-category",
+            mutable_content=False,
+            custom_data={
+                "link": "https://link-to-somewhere.com",
+                "ticket_id": "YXZ-655512",
+            },
         )
-        print(response)
+    ),
+)
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+message = Message(apns=apns_config, token="device-token-here")
+response = await client.send(message)
 ```
 
-To unsubscribe devices from a topic by passing registration tokens to the appropriate method:
-```python3
-import asyncio
+### Error handling
 
-from async_firebase import AsyncFirebaseClient
+Send failures raise specific exceptions from ``async_firebase.errors``:
 
+```python
+from async_firebase.errors import (
+    AsyncFirebaseError,
+    UnregisteredError,
+    QuotaExceededError,
+    InvalidArgumentError,
+)
 
-async def main():
-    device_tokens: list[str] = ["...", "..."]
-
-    async with AsyncFirebaseClient() as client:
-        client.creds_from_service_account_info({...})
-        response = await client.unsubscribe_devices_from_topic(
-            device_tokens=device_tokens, topic_name="some-topic"
-        )
-        print(response)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+try:
+    response = await client.send(message)
+except UnregisteredError:
+    # Device token is no longer valid — remove it
+    ...
+except QuotaExceededError:
+    # FCM rate limit hit — back off and retry
+    ...
+except AsyncFirebaseError as e:
+    print(e.code, e.message)
 ```
+
+Failed responses also populate ``FCMResponse.exception`` without raising, depending on the send method.
+
+## Changelog
+
+See [CHANGES.md](https://github.com/healthjoy/async-firebase/blob/master/CHANGES.md) for the full release history.
 
 ## License
 
 ``async-firebase`` is offered under the MIT license.
-
-## Source code
-
-The latest developer version is available in a GitHub repository:
-[https://github.com/healthjoy/async-firebase](https://github.com/healthjoy/async-firebase)
