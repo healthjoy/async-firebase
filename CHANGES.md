@@ -1,5 +1,37 @@
 # Changelog
 
+## 6.0.0
+FCM message parity with the official ``firebase-admin-python`` SDK.
+
+### New dataclasses
+* ``LightSettings`` — Android LED blink configuration (``color``, ``light_on_duration_millis``, ``light_off_duration_millis``).
+* ``CriticalSound`` — iOS critical alert sound (``name``, ``critical``, ``volume``).
+* ``AndroidFCMOptions`` — Android-specific FCM options (``analytics_label``).
+* ``APNSFCMOptions`` — APNS-specific FCM options (``analytics_label``, ``image``).
+* ``AndroidNotificationPriority`` — enum for notification-level UI priority (``default``, ``min``, ``low``, ``high``, ``max``).
+
+### New fields on existing dataclasses
+* ``AndroidNotification``: ``image``, ``ticker``, ``sticky``, ``event_timestamp``, ``local_only``, ``priority``, ``vibrate_timings_millis``, ``default_vibrate_timings``, ``default_sound``, ``light_settings``, ``default_light_settings``.
+* ``AndroidConfig``: ``fcm_options``, ``direct_boot_ok``, ``bandwidth_constrained_ok``, ``restricted_satellite_ok``.
+* ``APNSConfig``: ``fcm_options``, ``live_activity_token``.
+* ``ApsAlert``: ``subtitle``, ``custom_data``.
+* ``Aps.sound`` now accepts ``CriticalSound`` in addition to ``str``.
+
+### Updated ``build()`` classmethods
+* ``AndroidConfig.build()`` accepts all new ``AndroidNotification`` and ``AndroidConfig`` fields.
+* ``APNSConfig.build()`` accepts ``subtitle``, ``sound`` as ``CriticalSound``, ``fcm_options``, ``live_activity_token``.
+* ``WebpushConfig.build()`` ``vibrate`` parameter type corrected to ``List[int]``.
+
+### Serialization
+* New dedicated encoders in ``serialization`` module: ``encode_light_settings``, ``encode_android_notification``, ``encode_critical_sound``.
+* ``aps_encoder`` now handles ``ApsAlert.subtitle``, ``ApsAlert.custom_data``, and ``CriticalSound``.
+* ``serialize_message`` applies Android notification encoding (enum prefixing, timestamp formatting, duration conversion) before the generic cleanup pass.
+
+### Breaking changes
+* [BREAKING] ``Visibility`` changed from ``IntEnum`` to string ``Enum`` (values: ``"private"``, ``"public"``, ``"secret"``). Wire format now correctly serializes as ``VISIBILITY_PRIVATE`` etc.
+* [BREAKING] ``WebpushNotification.vibrate`` type changed from ``str`` to ``Optional[List[int]]``.
+* [BREAKING] ``NotificationProxy`` enum values now serialize as uppercase (``ALLOW``, ``DENY``, ``IF_PRIORITY_LOWERED``) in the wire format.
+
 ## 5.2.0
 * Extract error mapping and response handling into dedicated ``responses`` module. All HTTP-to-domain-error resolution — lookup tables, FCM-specific error detection, transport error mapping — now lives in ``async_firebase.responses`` with four typed public functions: ``handle_fcm_response``, ``handle_fcm_error``, ``handle_topic_response``, ``handle_topic_error``.
 * Extract payload serialization into dedicated ``serialization`` module. Message-to-JSON assembly — APNS encoding, recursive null stripping, validation — now lives in ``async_firebase.serialization`` with a single entry point: ``serialize_message(message, dry_run)``.
