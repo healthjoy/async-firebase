@@ -173,12 +173,12 @@ def serialize_message(message: Message, *, dry_run: bool = False) -> t.Dict[str,
     # Avoid mutation of the caller's message for any transformations
     message = replace(message)
 
-    if message.android and message.android.notification:
-        message = replace(message, android=replace(message.android))
-        android_overrides = encode_android_notification(message.android.notification)
-        message.android = replace(message.android, notification=replace(message.android.notification))
-        # Temporarily store overrides; they'll be merged after cleanup
-        _android_notification_overrides = android_overrides
+    android = message.android
+    if android and android.notification:
+        notification = android.notification
+        android = replace(android, notification=replace(notification))
+        message = replace(message, android=android)
+        _android_notification_overrides = encode_android_notification(notification)
     else:
         _android_notification_overrides = None
 
