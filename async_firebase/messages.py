@@ -3,7 +3,7 @@
 import typing as t
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from enum import Enum, IntEnum
+from enum import Enum
 
 import httpx
 
@@ -16,16 +16,16 @@ APNS_PRIORITY_HIGH = 10
 APNS_PRIORITY_NORMAL = 5
 
 
-class Visibility(IntEnum):
+class Visibility(Enum):
     """Available visibility levels.
 
     To get more insights please follow the reference
     https://developer.android.com/reference/android/app/Notification#visibility
     """
 
-    PRIVATE = 0
-    PUBLIC = 1
-    SECRET = -1
+    PRIVATE = "private"
+    PUBLIC = "public"
+    SECRET = "secret"
 
 
 class NotificationProxy(Enum):
@@ -38,6 +38,45 @@ class NotificationProxy(Enum):
     ALLOW = "allow"
     DENY = "deny"
     IF_PRIORITY_LOWERED = "if_priority_lowered"
+
+
+class AndroidNotificationPriority(Enum):
+    """Notification priority levels for Android.
+
+    Controls the UI importance in the notification shade.
+    """
+
+    DEFAULT = "default"
+    MIN = "min"
+    LOW = "low"
+    HIGH = "high"
+    MAX = "max"
+
+
+@dataclass
+class LightSettings:
+    """LED light settings for Android notifications.
+
+    Attributes:
+    color: LED color in ``#rrggbb`` or ``#rrggbbaa`` format.
+    light_on_duration_millis: LED on duration in milliseconds.
+    light_off_duration_millis: LED off duration in milliseconds.
+    """
+
+    color: str
+    light_on_duration_millis: t.Union[int, float]
+    light_off_duration_millis: t.Union[int, float]
+
+
+@dataclass
+class AndroidFCMOptions:
+    """Android-specific options for features provided by the FCM SDK.
+
+    Attributes:
+    analytics_label: label associated with the message's analytics data (optional).
+    """
+
+    analytics_label: t.Optional[str] = None
 
 
 @dataclass
@@ -87,6 +126,17 @@ class AndroidNotification:
     title_loc_key: t.Optional[str] = None
     title_loc_args: t.List[str] = field(default_factory=list)
     channel_id: t.Optional[str] = None
+    image: t.Optional[str] = None
+    ticker: t.Optional[str] = None
+    sticky: t.Optional[bool] = None
+    event_timestamp: t.Optional[datetime] = None
+    local_only: t.Optional[bool] = None
+    priority: t.Optional[AndroidNotificationPriority] = None
+    vibrate_timings_millis: t.Optional[t.List[t.Union[int, float]]] = None
+    default_vibrate_timings: t.Optional[bool] = None
+    default_sound: t.Optional[bool] = None
+    light_settings: t.Optional[LightSettings] = None
+    default_light_settings: t.Optional[bool] = None
     notification_count: t.Optional[int] = None
     visibility: t.Optional[Visibility] = None
     proxy: t.Optional[NotificationProxy] = None
@@ -115,6 +165,10 @@ class AndroidConfig:
     restricted_package_name: t.Optional[str] = None
     data: t.Dict[str, str] = field(default_factory=dict)
     notification: t.Optional[AndroidNotification] = field(default=None)
+    fcm_options: t.Optional[AndroidFCMOptions] = field(default=None)
+    direct_boot_ok: t.Optional[bool] = None
+    bandwidth_constrained_ok: t.Optional[bool] = None
+    restricted_satellite_ok: t.Optional[bool] = None
 
     @classmethod
     def build(
@@ -137,9 +191,24 @@ class AndroidConfig:
         title_loc_key: t.Optional[str] = None,
         title_loc_args: t.Optional[t.List[str]] = None,
         channel_id: t.Optional[str] = None,
+        image: t.Optional[str] = None,
+        ticker: t.Optional[str] = None,
+        sticky: t.Optional[bool] = None,
+        event_timestamp: t.Optional[datetime] = None,
+        local_only: t.Optional[bool] = None,
+        notification_priority: t.Optional["AndroidNotificationPriority"] = None,
+        vibrate_timings_millis: t.Optional[t.List[t.Union[int, float]]] = None,
+        default_vibrate_timings: t.Optional[bool] = None,
+        default_sound: t.Optional[bool] = None,
+        light_settings: t.Optional["LightSettings"] = None,
+        default_light_settings: t.Optional[bool] = None,
         notification_count: t.Optional[int] = None,
         visibility: "Visibility" = Visibility.PRIVATE,
         proxy: t.Optional["NotificationProxy"] = None,
+        fcm_options: t.Optional["AndroidFCMOptions"] = None,
+        direct_boot_ok: t.Optional[bool] = None,
+        bandwidth_constrained_ok: t.Optional[bool] = None,
+        restricted_satellite_ok: t.Optional[bool] = None,
     ) -> "AndroidConfig":
         """
         Constructs AndroidConfig that will be used to customize the messages that are sent to Android device.
@@ -172,11 +241,26 @@ class AndroidConfig:
             in ``title_loc_key`` (optional).
         :param channel_id: Notification channel id, used by android to allow user to configure notification display
             rules on per-channel basis (optional).
+        :param image: Image URL for the notification (optional).
+        :param ticker: Accessibility / status bar text (optional).
+        :param sticky: If True, notification persists after user click (optional).
+        :param event_timestamp: Time of the event the notification represents (optional).
+        :param local_only: If True, notification is not bridged to other devices (optional).
+        :param notification_priority: Notification UI priority level (optional).
+        :param vibrate_timings_millis: Vibration pattern in milliseconds (optional).
+        :param default_vibrate_timings: Use framework default vibrate pattern (optional).
+        :param default_sound: Use framework default sound (optional).
+        :param light_settings: LED blink settings (optional).
+        :param default_light_settings: Use framework default LED settings (optional).
         :param notification_count: The number of items in notification. May be displayed as a badge count for launchers
             that support badging. If zero or unspecified, systems that support badging use the default, which is to
             increment a number displayed on the long-press menu each time a new notification arrives (optional).
         :param visibility: set the visibility of the notification. The default level, VISIBILITY_PRIVATE.
         :param proxy: set the proxy behaviour. The default behaviour is set to None.
+        :param fcm_options: Android-specific FCM options (optional).
+        :param direct_boot_ok: Allow delivery in direct boot mode (optional).
+        :param bandwidth_constrained_ok: Allow delivery on constrained network (optional).
+        :param restricted_satellite_ok: Allow delivery on restricted satellite network (optional).
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
         return cls(
@@ -198,10 +282,25 @@ class AndroidConfig:
                 title_loc_key=title_loc_key,
                 title_loc_args=title_loc_args or [],
                 channel_id=channel_id,
+                image=image,
+                ticker=ticker,
+                sticky=sticky,
+                event_timestamp=event_timestamp,
+                local_only=local_only,
+                priority=notification_priority,
+                vibrate_timings_millis=vibrate_timings_millis,
+                default_vibrate_timings=default_vibrate_timings,
+                default_sound=default_sound,
+                light_settings=light_settings,
+                default_light_settings=default_light_settings,
                 notification_count=notification_count,
                 visibility=visibility,
                 proxy=proxy,
             ),
+            fcm_options=fcm_options,
+            direct_boot_ok=direct_boot_ok,
+            bandwidth_constrained_ok=bandwidth_constrained_ok,
+            restricted_satellite_ok=restricted_satellite_ok,
         )
 
 
@@ -223,6 +322,7 @@ class ApsAlert:
     """
 
     title: t.Optional[str] = None
+    subtitle: t.Optional[str] = None
     body: t.Optional[str] = None
     loc_key: t.Optional[str] = None
     loc_args: t.List[str] = field(default_factory=list)
@@ -230,6 +330,35 @@ class ApsAlert:
     title_loc_args: t.List[str] = field(default_factory=list)
     action_loc_key: t.Optional[str] = None
     launch_image: t.Optional[str] = None
+    custom_data: t.Optional[t.Dict[str, t.Any]] = None
+
+
+@dataclass
+class CriticalSound:
+    """Critical alert sound for iOS notifications.
+
+    Attributes:
+    name: the name of the sound file or ``"default"``.
+    critical: whether this is a critical alert sound (optional).
+    volume: the volume level between 0.0 and 1.0 (optional).
+    """
+
+    name: str
+    critical: t.Optional[bool] = None
+    volume: t.Optional[float] = None
+
+
+@dataclass
+class APNSFCMOptions:
+    """APNS-specific options for features provided by the FCM SDK.
+
+    Attributes:
+    analytics_label: label associated with the message's analytics data (optional).
+    image: URL of an image to be displayed in the notification (optional).
+    """
+
+    analytics_label: t.Optional[str] = None
+    image: t.Optional[str] = None
 
 
 @dataclass
@@ -259,7 +388,7 @@ class Aps:
 
     alert: t.Union[str, ApsAlert, None] = None
     badge: t.Optional[int] = None
-    sound: t.Optional[str] = None
+    sound: t.Union[str, CriticalSound, None] = None
     content_available: t.Optional[bool] = None
     category: t.Optional[str] = None
     thread_id: t.Optional[str] = None
@@ -294,6 +423,8 @@ class APNSConfig:
 
     headers: t.Dict[str, str] = field(default_factory=dict)
     payload: t.Optional[APNSPayload] = field(default=None)
+    fcm_options: t.Optional[APNSFCMOptions] = field(default=None)
+    live_activity_token: t.Optional[str] = None
 
     @classmethod
     def build(
@@ -304,9 +435,10 @@ class APNSConfig:
         apns_topic: t.Optional[str] = None,
         collapse_key: t.Optional[str] = None,
         title: t.Optional[str] = None,
+        subtitle: t.Optional[str] = None,
         alert: t.Optional[str] = None,
         badge: t.Optional[int] = None,
-        sound: t.Optional[str] = None,
+        sound: t.Union[str, "CriticalSound", None] = None,
         content_available: bool = False,
         category: t.Optional[str] = None,
         thread_id: t.Optional[str] = None,
@@ -318,6 +450,8 @@ class APNSConfig:
         title_loc_args: t.Optional[t.List[str]] = None,
         action_loc_key: t.Optional[str] = None,
         launch_image: t.Optional[str] = None,
+        fcm_options: t.Optional["APNSFCMOptions"] = None,
+        live_activity_token: t.Optional[str] = None,
     ) -> "APNSConfig":
         """
         Constructs APNSConfig that will be used to customize the messages that are sent to iOS device.
@@ -330,10 +464,11 @@ class APNSConfig:
         :param collapse_key: this parameter identifies a group of messages that can be collapsed, so that only the last
             message gets sent when delivery can be resumed.
         :param title: title of the alert (optional). If specified, overrides the title set via ``messages.Notification``
+        :param subtitle: subtitle of the alert (optional).
         :param alert: a string or a ``messages.ApsAlert`` instance (optional).
         :param badge: the value of the badge on the home screen app icon. If not specified, the badge is not changed.
             If set to 0, the badge is removed.
-        :param sound: name of the sound file to be played with the message (optional).
+        :param sound: name of the sound file, or a ``CriticalSound`` instance (optional).
         :param content_available: A boolean indicating whether to configure a background update notification (optional).
         :param category: string identifier representing the message type (optional).
         :param thread_id: an app-specific string identifier for grouping messages (optional).
@@ -351,6 +486,8 @@ class APNSConfig:
         :param action_loc_key: key of the text in the app's string resources to use to localize the action button text
             (optional).
         :param launch_image: image for the notification action (optional).
+        :param fcm_options: APNS-specific FCM options (optional).
+        :param live_activity_token: iOS Live Activity push token (optional).
         :return: an instance of ``messages.APNSConfig`` to included in the resulting payload.
         """
         apns_headers = {
@@ -368,6 +505,7 @@ class APNSConfig:
                 aps=Aps(
                     alert=ApsAlert(
                         title=title,
+                        subtitle=subtitle,
                         body=alert,
                         loc_key=loc_key,
                         loc_args=loc_args or [],
@@ -385,6 +523,8 @@ class APNSConfig:
                     content_available=True if content_available else None,
                 ),
             ),
+            fcm_options=fcm_options,
+            live_activity_token=live_activity_token,
         )
 
 
@@ -474,7 +614,7 @@ class WebpushNotification:
     silent: t.Optional[bool] = None
     tag: t.Optional[str] = None
     timestamp_millis: t.Optional[int] = None
-    vibrate: t.Optional[str] = None
+    vibrate: t.Optional[t.List[int]] = None
     custom_data: t.Dict[str, str] = field(default_factory=dict)
 
 
@@ -516,7 +656,7 @@ class WebpushConfig:
         silent: t.Optional[bool] = False,
         tag: t.Optional[str] = None,
         timestamp_millis: t.Optional[int] = None,
-        vibrate: t.Optional[str] = None,
+        vibrate: t.Optional[t.List[int]] = None,
         custom_data: t.Optional[t.Dict[str, str]] = None,
         link: t.Optional[str] = None,
     ) -> "WebpushConfig":
