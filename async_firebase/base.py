@@ -5,6 +5,7 @@ Documentation for google-auth package https://google-auth.readthedocs.io/en/late
 to authorize request which is being made to Firebase.
 """
 
+import asyncio
 import logging
 import typing as t
 import uuid
@@ -68,6 +69,7 @@ class AsyncClientBase:
         self._request_limits = request_limits
         self._use_http2 = use_http2
         self._http_client: t.Optional[httpx.AsyncClient] = None
+        self._client_lock = asyncio.Lock()
 
     async def __aenter__(self):
         return self
@@ -78,19 +80,22 @@ class AsyncClientBase:
 
     async def close(self) -> None:
         """Close the underlying HTTP client and release resources."""
-        if self._http_client is not None and not self._http_client.is_closed:
-            await self._http_client.aclose()
+        async with self._client_lock:
+            if self._http_client is not None and not self._http_client.is_closed:
+                await self._http_client.aclose()
             self._http_client = None
 
-    @property
-    def _client(self) -> httpx.AsyncClient:
-        if self._http_client is None or self._http_client.is_closed:
-            self._http_client = httpx.AsyncClient(
-                timeout=httpx.Timeout(**self._request_timeout.__dict__),
-                limits=httpx.Limits(**self._request_limits.__dict__),
-                http2=self._use_http2,
-            )
-        return self._http_client
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._http_client is not None and not self._http_client.is_closed:
+            return self._http_client
+        async with self._client_lock:
+            if self._http_client is None or self._http_client.is_closed:
+                self._http_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(**self._request_timeout.__dict__),
+                    limits=httpx.Limits(**self._request_limits.__dict__),
+                    http2=self._use_http2,
+                )
+            return self._http_client
 
     @property
     def _credentials(self) -> service_account.Credentials:
@@ -114,7 +119,7 @@ class AsyncClientBase:
 
     async def _get_access_token(self) -> str:
         """Get OAuth 2 access token."""
-        return await self._credential_manager.get_access_token(self._client)
+        return await self._credential_manager.get_access_token(await self._get_client())
 
     @staticmethod
     def get_request_id():
@@ -148,7 +153,8 @@ class AsyncClientBase:
             headers,
         )
         try:
-            raw_fcm_response: httpx.Response = await self._client.post(
+            client = await self._get_client()
+            raw_fcm_response: httpx.Response = await client.post(
                 url,
                 json=json_payload,
                 headers=headers or await self.prepare_headers(),
@@ -180,7 +186,8 @@ class AsyncClientBase:
             headers,
         )
         try:
-            raw_fcm_response: httpx.Response = await self._client.post(
+            client = await self._get_client()
+            raw_fcm_response: httpx.Response = await client.post(
                 url,
                 json=json_payload,
                 headers=headers or await self.prepare_headers(),
