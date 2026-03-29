@@ -709,8 +709,8 @@ async def test_async_context_manager(fake_service_account):
     """Test that async context manager properly opens and closes the client."""
     async with AsyncFirebaseClient() as client:
         client.creds_from_service_account_info(fake_service_account)
-        # Accessing _client should create the http client
-        _ = client._client
+        # Accessing _get_client should create the http client
+        _ = await client._get_client()
         assert client._http_client is not None
         assert not client._http_client.is_closed
 
@@ -729,7 +729,7 @@ async def test_close_without_http_client():
 async def test_close_already_closed_client():
     """Calling close() when HTTP client is already closed should be a no-op."""
     client = AsyncFirebaseClient()
-    _ = client._client  # create the http client
+    _ = await client._get_client()  # create the http client
     await client._http_client.aclose()
     assert client._http_client.is_closed
     # close() should handle the already-closed case gracefully

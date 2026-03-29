@@ -1,5 +1,8 @@
 # Changelog
 
+## 6.0.1
+* [FIX] Fix race condition in lazy HTTP client initialization. Concurrent coroutines could previously create multiple ``httpx.AsyncClient`` instances, orphaning connections. The synchronous ``_client`` property is replaced with an async ``_get_client()`` method guarded by ``asyncio.Lock``, and ``close()`` now acquires the same lock to prevent races between teardown and initialization.
+
 ## 6.0.0
 FCM message parity with the official ``firebase-admin-python`` SDK.
 
