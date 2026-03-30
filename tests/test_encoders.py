@@ -217,7 +217,7 @@ def test_encode_light_settings_rrggbbaa():
 def test_encode_android_notification_visibility():
     notif = AndroidNotification(visibility=Visibility.PUBLIC)
     result = encode_android_notification(notif)
-    assert result["visibility"] == "VISIBILITY_PUBLIC"
+    assert result["visibility"] == "PUBLIC"
 
 
 def test_encode_android_notification_proxy():
@@ -229,7 +229,7 @@ def test_encode_android_notification_proxy():
 def test_encode_android_notification_priority():
     notif = AndroidNotification(priority=AndroidNotificationPriority.HIGH)
     result = encode_android_notification(notif)
-    assert result["priority"] == "PRIORITY_HIGH"
+    assert result["notification_priority"] == "PRIORITY_HIGH"
 
 
 def test_encode_android_notification_light_settings():
@@ -245,7 +245,7 @@ def test_encode_android_notification_event_timestamp():
     ts = datetime(2025, 6, 15, 12, 0, 0)
     notif = AndroidNotification(event_timestamp=ts)
     result = encode_android_notification(notif)
-    assert result["event_timestamp"] == "2025-06-15T12:00:00Z"
+    assert result["event_time"] == "2025-06-15T12:00:00Z"
 
 
 def test_encode_android_notification_vibrate_timings():

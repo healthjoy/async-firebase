@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.0.2
+* [FIX] Correct FCM wire-format for ``AndroidNotification`` enum fields to match the official ``firebase-admin-python`` SDK:
+  * ``visibility``: send ``"PRIVATE"`` instead of ``"VISIBILITY_PRIVATE"`` (fixes ``InvalidArgumentError`` from FCM API).
+  * ``priority``: use wire-format key ``"notification_priority"`` instead of ``"priority"``.
+  * ``event_timestamp``: use wire-format key ``"event_time"`` instead of ``"event_timestamp"``.
+  * Remove stale dataclass field names (``priority``, ``event_timestamp``, ``vibrate_timings_millis``) that leaked into the serialized payload alongside their correctly-keyed overrides.
+
 ## 6.0.1
 * [FIX] Fix race condition in lazy HTTP client initialization. Concurrent coroutines could previously create multiple ``httpx.AsyncClient`` instances, orphaning connections. The synchronous ``_client`` property is replaced with an async ``_get_client()`` method guarded by ``asyncio.Lock``, and ``close()`` now acquires the same lock to prevent races between teardown and initialization.
 
@@ -31,7 +38,7 @@ FCM message parity with the official ``firebase-admin-python`` SDK.
 * ``serialize_message`` applies Android notification encoding (enum prefixing, timestamp formatting, duration conversion) before the generic cleanup pass.
 
 ### Breaking changes
-* [BREAKING] ``Visibility`` changed from ``IntEnum`` to string ``Enum`` (values: ``"private"``, ``"public"``, ``"secret"``). Wire format now correctly serializes as ``VISIBILITY_PRIVATE`` etc.
+* [BREAKING] ``Visibility`` changed from ``IntEnum`` to string ``Enum`` (values: ``"private"``, ``"public"``, ``"secret"``). Wire format now serializes as ``PRIVATE`` etc.
 * [BREAKING] ``WebpushNotification.vibrate`` type changed from ``str`` to ``Optional[List[int]]``.
 * [BREAKING] ``NotificationProxy`` enum values now serialize as uppercase (``ALLOW``, ``DENY``, ``IF_PRIORITY_LOWERED``) in the wire format.
 

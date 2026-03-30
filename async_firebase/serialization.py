@@ -73,19 +73,19 @@ def encode_android_notification(notification: AndroidNotification) -> t.Dict[str
     result: t.Dict[str, t.Any] = {}
 
     if notification.visibility is not None:
-        result["visibility"] = f"VISIBILITY_{notification.visibility.upper()}"
+        result["visibility"] = notification.visibility.upper()
 
     if notification.proxy is not None:
         result["proxy"] = notification.proxy.upper()
 
     if notification.priority is not None:
-        result["priority"] = f"PRIORITY_{notification.priority.upper()}"
+        result["notification_priority"] = f"PRIORITY_{notification.priority.upper()}"
 
     if notification.light_settings is not None:
         result["light_settings"] = encode_light_settings(notification.light_settings)
 
     if notification.event_timestamp is not None:
-        result["event_timestamp"] = notification.event_timestamp.isoformat() + "Z"
+        result["event_time"] = notification.event_timestamp.isoformat() + "Z"
 
     if notification.vibrate_timings_millis is not None:
         result["vibrate_timings"] = [f"{ms / 1000}s" for ms in notification.vibrate_timings_millis]
@@ -190,7 +190,12 @@ def serialize_message(message: Message, *, dry_run: bool = False) -> t.Dict[str,
     if _android_notification_overrides and "android" in push_notification.get("message", {}):
         android_msg = push_notification["message"]["android"]
         if "notification" in android_msg:
-            android_msg["notification"].update(_android_notification_overrides)
+            notif_dict = android_msg["notification"]
+            # Remove dataclass field names that differ from FCM wire-format names
+            # before applying the correctly-keyed overrides.
+            for stale_key in ("priority", "event_timestamp", "vibrate_timings_millis"):
+                notif_dict.pop(stale_key, None)
+            notif_dict.update(_android_notification_overrides)
     if len(push_notification["message"]) == 1:
         logging.warning("No data has been provided to construct push notification payload")
         raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
