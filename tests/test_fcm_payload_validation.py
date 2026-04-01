@@ -58,10 +58,15 @@ def _assert_payload_accepted(response):
 
     NOT_FOUND / UNREGISTERED means the token doesn't exist but the payload
     was valid — that is the expected outcome for a fake token with dry_run.
-    INVALID_ARGUMENT means the payload itself is malformed — test must fail.
+    INVALID_ARGUMENT about the *token* is also acceptable — it means FCM
+    parsed the payload successfully but rejected the fake token.
+    INVALID_ARGUMENT about anything else means the payload is malformed.
     """
-    assert not isinstance(response.exception, InvalidArgumentError), (
-        f"FCM rejected the payload as INVALID_ARGUMENT: {response.exception}"
+    if not isinstance(response.exception, InvalidArgumentError):
+        return
+    message = str(response.exception)
+    assert "registration token" in message.lower(), (
+        f"FCM rejected the payload as INVALID_ARGUMENT: {message}"
     )
 
 
