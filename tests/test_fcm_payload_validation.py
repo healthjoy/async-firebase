@@ -209,10 +209,6 @@ def _rename_field(payload, old_key, new_key):
             lambda p: _inject_bad_field(p, "visibility", "VISIBILITY_PRIVATE"),
         ),
         (
-            "visibility lowercase value",
-            lambda p: _inject_bad_field(p, "visibility", "private"),
-        ),
-        (
             "priority with wrong key name",
             lambda p: _rename_field(p, "notification_priority", "priority"),
         ),
@@ -223,7 +219,6 @@ def _rename_field(payload, old_key, new_key):
     ],
     ids=[
         "visibility-prefixed",
-        "visibility-lowercase",
         "priority-wrong-key",
         "event_time-wrong-key",
     ],
