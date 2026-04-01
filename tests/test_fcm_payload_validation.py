@@ -5,10 +5,9 @@ These tests require valid Firebase credentials. Set the environment variable
 When credentials are absent the tests are skipped automatically.
 
 dry_run=True tells FCM to validate the entire message structure (payload format,
-field types, enum values) without actually delivering the message. A fake but
-syntactically valid device token is sufficient — FCM returns NOT_FOUND /
-UNREGISTERED for a nonexistent token, confirming the payload itself is valid.
-FCM returns INVALID_ARGUMENT if the payload is malformed.
+field types, enum values) without delivering the message. Messages are addressed
+to a topic (not a device token) so FCM validates the full payload without
+short-circuiting on token validation.
 """
 
 import os
@@ -33,9 +32,10 @@ from async_firebase.messages import (
 from async_firebase.serialization import serialize_message
 
 
-FAKE_DEVICE_TOKEN = "cyLa0tdhQEWwV6j_ZFWuHb:APA91bGqTD_gKaAiyaCDyWRwBhGLiMDTj2jXgEeM-ZZ1CclDqBViqKFvEhR46Ii-mmWcVw4tcmHHdycQPM0Spmy9-Z4uQcyTmcgN9JxPQnyVn_4E2LvfQfU"
-
 _service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY")
+
+# Topic used for dry_run validation — no real subscribers needed.
+_TEST_TOPIC = "payload-validation-test"
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -58,17 +58,12 @@ async def fcm_client():
 def _assert_payload_accepted(response):
     """Assert that FCM accepted the payload structure.
 
-    NOT_FOUND / UNREGISTERED means the token doesn't exist but the payload
-    was valid — that is the expected outcome for a fake token with dry_run.
-    INVALID_ARGUMENT about the *token* is also acceptable — it means FCM
-    parsed the payload successfully but rejected the fake token.
-    INVALID_ARGUMENT about anything else means the payload is malformed.
+    With dry_run=True and a topic target, a successful response (no exception)
+    means FCM fully validated the payload. INVALID_ARGUMENT means the payload
+    is malformed — the test must fail.
     """
-    if not isinstance(response.exception, InvalidArgumentError):
-        return
-    message = str(response.exception)
-    assert "registration token" in message.lower(), (
-        f"FCM rejected the payload as INVALID_ARGUMENT: {message}"
+    assert not isinstance(response.exception, InvalidArgumentError), (
+        f"FCM rejected the payload as INVALID_ARGUMENT: {response.exception}"
     )
 
 
@@ -97,7 +92,7 @@ async def test_standard_android_push_payload(fcm_client):
         visibility=Visibility.PRIVATE,
         proxy=NotificationProxy.ALLOW,
     )
-    message = Message(android=android_config, token=FAKE_DEVICE_TOKEN)
+    message = Message(android=android_config, topic=_TEST_TOPIC)
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
 
@@ -109,7 +104,7 @@ async def test_silent_android_push_payload(fcm_client):
         ttl=600,
         data={"action": "sync", "resource_id": "42"},
     )
-    message = Message(android=android_config, token=FAKE_DEVICE_TOKEN)
+    message = Message(android=android_config, topic=_TEST_TOPIC)
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
 
@@ -127,7 +122,7 @@ async def test_standard_apns_push_payload(fcm_client):
         category="TEST_CATEGORY",
         mutable_content=True,
     )
-    message = Message(apns=apns_config, token=FAKE_DEVICE_TOKEN)
+    message = Message(apns=apns_config, topic=_TEST_TOPIC)
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
 
@@ -140,7 +135,7 @@ async def test_silent_apns_push_payload(fcm_client):
         content_available=True,
         custom_data={"action": "background_refresh"},
     )
-    message = Message(apns=apns_config, token=FAKE_DEVICE_TOKEN)
+    message = Message(apns=apns_config, topic=_TEST_TOPIC)
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
 
@@ -166,7 +161,7 @@ async def test_cross_platform_push_payload(fcm_client):
         notification=Notification(title="Cross-platform Test", body="Testing both platforms"),
         android=android_config,
         apns=apns_config,
-        token=FAKE_DEVICE_TOKEN,
+        topic=_TEST_TOPIC,
     )
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
@@ -187,7 +182,7 @@ def _build_valid_payload():
                     proxy=NotificationProxy.ALLOW,
                 ),
             ),
-            token=FAKE_DEVICE_TOKEN,
+            topic=_TEST_TOPIC,
         ),
         dry_run=True,
     )
@@ -237,8 +232,7 @@ async def test_fcm_rejects_malformed_wire_format(fcm_client, description, mutate
     """Verify FCM rejects known wire-format mistakes that are easy to regress on.
 
     Each case reproduces a specific serialization bug. The test builds a valid
-    payload, injects the exact mistake, and asserts FCM returns INVALID_ARGUMENT
-    for a payload reason (not a token reason).
+    payload, injects the exact mistake, and asserts FCM returns INVALID_ARGUMENT.
     """
     malformed_payload = mutate_payload(_build_valid_payload())
 
@@ -248,7 +242,4 @@ async def test_fcm_rejects_malformed_wire_format(fcm_client, description, mutate
     )
     assert isinstance(response.exception, InvalidArgumentError), (
         f"Expected FCM to reject '{description}' with INVALID_ARGUMENT, got: {response.exception}"
-    )
-    assert "registration token" not in str(response.exception).lower(), (
-        f"Error should be about payload, not the token. Got: {response.exception}"
     )
