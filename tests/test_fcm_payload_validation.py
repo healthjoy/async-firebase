@@ -15,6 +15,7 @@ import os
 from datetime import datetime
 
 import pytest
+import pytest_asyncio
 
 from async_firebase.client import AsyncFirebaseClient
 from async_firebase.errors import InvalidArgumentError
@@ -44,7 +45,7 @@ pytestmark = [
 ]
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def fcm_client():
     client = AsyncFirebaseClient()
     client.creds_from_service_account_file(_service_account_path)
