@@ -58,6 +58,9 @@ norecursedirs = [
     "build",
 ]
 testpaths = ["tests"]
+markers = [
+    "integration: tests that hit real external services (FCM) and require credentials",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",

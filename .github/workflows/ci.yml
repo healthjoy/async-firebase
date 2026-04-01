@@ -173,3 +173,42 @@ jobs:
         with:
           project-token: ${{ secrets.CODACY_TOKEN }}
           coverage-reports: coverage.xml
+
+  integration-test:
+    needs: [ linters-ruff, linters-mypy ]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - name: source code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction
+
+      - name: Run FCM payload validation tests
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_JSON }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT_KEY_JSON" > /tmp/firebase-sa.json
+          FIREBASE_SERVICE_ACCOUNT_KEY=/tmp/firebase-sa.json poetry run pytest -m integration -v
