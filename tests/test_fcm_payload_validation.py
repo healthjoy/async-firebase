@@ -21,6 +21,7 @@ from async_firebase.client import AsyncFirebaseClient
 from async_firebase.errors import InvalidArgumentError
 from async_firebase.messages import (
     AndroidConfig,
+    AndroidNotification,
     AndroidNotificationPriority,
     APNSConfig,
     LightSettings,
@@ -29,6 +30,7 @@ from async_firebase.messages import (
     NotificationProxy,
     Visibility,
 )
+from async_firebase.serialization import serialize_message
 
 
 FAKE_DEVICE_TOKEN = "cyLa0tdhQEWwV6j_ZFWuHb:APA91bGqTD_gKaAiyaCDyWRwBhGLiMDTj2jXgEeM-ZZ1CclDqBViqKFvEhR46Ii-mmWcVw4tcmHHdycQPM0Spmy9-Z4uQcyTmcgN9JxPQnyVn_4E2LvfQfU"
@@ -168,3 +170,85 @@ async def test_cross_platform_push_payload(fcm_client):
     )
     response = await fcm_client.send(message, dry_run=True)
     _assert_payload_accepted(response)
+
+
+def _build_valid_payload():
+    """Build a correctly serialized payload with all fragile fields populated."""
+    return serialize_message(
+        Message(
+            android=AndroidConfig(
+                priority="high",
+                notification=AndroidNotification(
+                    title="Payload test",
+                    body="Testing wire format",
+                    visibility=Visibility.PRIVATE,
+                    priority=AndroidNotificationPriority.HIGH,
+                    event_timestamp=datetime(2026, 1, 15, 12, 0, 0),
+                    proxy=NotificationProxy.ALLOW,
+                ),
+            ),
+            token=FAKE_DEVICE_TOKEN,
+        ),
+        dry_run=True,
+    )
+
+
+def _inject_bad_field(payload, field, value):
+    """Replace a field in the android notification dict."""
+    payload["message"]["android"]["notification"][field] = value
+    return payload
+
+
+def _rename_field(payload, old_key, new_key):
+    """Rename a key in the android notification dict (simulates wrong wire-format key)."""
+    notif = payload["message"]["android"]["notification"]
+    notif[new_key] = notif.pop(old_key)
+    return payload
+
+
+@pytest.mark.parametrize(
+    "description, mutate_payload",
+    [
+        (
+            "visibility with VISIBILITY_ prefix",
+            lambda p: _inject_bad_field(p, "visibility", "VISIBILITY_PRIVATE"),
+        ),
+        (
+            "visibility lowercase value",
+            lambda p: _inject_bad_field(p, "visibility", "private"),
+        ),
+        (
+            "priority with wrong key name",
+            lambda p: _rename_field(p, "notification_priority", "priority"),
+        ),
+        (
+            "event_time with wrong key name",
+            lambda p: _rename_field(p, "event_time", "event_timestamp"),
+        ),
+    ],
+    ids=[
+        "visibility-prefixed",
+        "visibility-lowercase",
+        "priority-wrong-key",
+        "event_time-wrong-key",
+    ],
+)
+async def test_fcm_rejects_malformed_wire_format(fcm_client, description, mutate_payload):
+    """Verify FCM rejects known wire-format mistakes that are easy to regress on.
+
+    Each case reproduces a specific serialization bug. The test builds a valid
+    payload, injects the exact mistake, and asserts FCM returns INVALID_ARGUMENT
+    for a payload reason (not a token reason).
+    """
+    malformed_payload = mutate_payload(_build_valid_payload())
+
+    response = await fcm_client.send_fcm_request(
+        uri=fcm_client.FCM_ENDPOINT.format(project_id=fcm_client._credentials.project_id),
+        json_payload=malformed_payload,
+    )
+    assert isinstance(response.exception, InvalidArgumentError), (
+        f"Expected FCM to reject '{description}' with INVALID_ARGUMENT, got: {response.exception}"
+    )
+    assert "registration token" not in str(response.exception).lower(), (
+        f"Error should be about payload, not the token. Got: {response.exception}"
+    )
