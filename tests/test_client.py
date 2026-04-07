@@ -563,6 +563,33 @@ def test_serialize_message(message, exp_push_notification):
     assert push_notification == exp_push_notification
 
 
+def test_serialize_data_only_android_message():
+    """Data-only AndroidConfig.build() should serialize without notification key."""
+    message = Message(
+        token="token-1",
+        android=AndroidConfig.build(
+            priority="high",
+            ttl=2419200,
+            collapse_key="NEW_MESSAGE",
+            data={"silent": "true", "bundle": "hj_groups"},
+        ),
+    )
+    result = serialize_message(message)
+    assert result == {
+        "message": {
+            "token": "token-1",
+            "android": {
+                "collapse_key": "NEW_MESSAGE",
+                "priority": "high",
+                "ttl": "2419200s",
+                "data": {"silent": "true", "bundle": "hj_groups"},
+            },
+        },
+        "validate_only": False,
+    }
+    assert "notification" not in result["message"]["android"]
+
+
 def test_build_webpush_config(fake_async_fcm_client_w_creds):
     webpush_config = fake_async_fcm_client_w_creds.build_webpush_config(
         data={"attr_1": "value_1", "attr_2": "value_2"},

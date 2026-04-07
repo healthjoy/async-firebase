@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.1.0
+* ``AndroidConfig.build()`` and ``APNSConfig.build()`` now support data-only FCM messages. When no notification/alert fields are provided, the builder omits the ``notification`` (Android) or ``alert`` (APNS) from the payload, producing a clean data-only message.
+* ``AndroidConfig.build()`` ``visibility`` parameter default changed from ``Visibility.PRIVATE`` to ``None``. FCM applies ``PRIVATE`` server-side when omitted, so wire behavior is unchanged.
+
 ## 6.0.2
 * [FIX] Correct FCM wire-format for ``AndroidNotification`` enum fields to match the official ``firebase-admin-python`` SDK:
   * ``visibility``: send ``"PRIVATE"`` instead of ``"VISIBILITY_PRIVATE"`` (fixes ``InvalidArgumentError`` from FCM API).

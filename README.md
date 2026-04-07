@@ -87,6 +87,17 @@ android_config = AndroidConfig.build(
 )
 ```
 
+To send a **data-only** message (no notification), simply omit all notification fields:
+
+```python
+android_config = AndroidConfig.build(
+    priority="high",
+    ttl=2419200,
+    collapse_key="push",
+    data={"discount": "15%", "key_1": "value_1"},
+)
+```
+
 New in v6.0: ``image``, ``ticker``, ``sticky``, ``event_timestamp``, ``local_only``, ``notification_priority``, ``vibrate_timings_millis``, ``default_vibrate_timings``, ``default_sound``, ``light_settings``, ``default_light_settings``, ``fcm_options``, ``direct_boot_ok``, ``bandwidth_constrained_ok``, ``restricted_satellite_ok``.
 
 ### iOS (APNs)
@@ -104,6 +115,20 @@ apns_config = APNSConfig.build(
     badge=1,
     category="test-category",
     custom_data={"discount": "15%", "key_1": "value_1"},
+)
+```
+
+To send a **data-only** APNS message, omit all alert fields:
+
+```python
+apns_config = APNSConfig.build(
+    priority="high",
+    ttl=2419200,
+    collapse_key="push",
+    badge=0,
+    category="test-category",
+    content_available=True,
+    custom_data={"key_1": "value_1"},
 )
 ```
 
