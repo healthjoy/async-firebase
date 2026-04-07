@@ -203,7 +203,7 @@ class AndroidConfig:
         light_settings: t.Optional["LightSettings"] = None,
         default_light_settings: t.Optional[bool] = None,
         notification_count: t.Optional[int] = None,
-        visibility: "Visibility" = Visibility.PRIVATE,
+        visibility: t.Optional["Visibility"] = None,
         proxy: t.Optional["NotificationProxy"] = None,
         fcm_options: t.Optional["AndroidFCMOptions"] = None,
         direct_boot_ok: t.Optional[bool] = None,
@@ -255,7 +255,7 @@ class AndroidConfig:
         :param notification_count: The number of items in notification. May be displayed as a badge count for launchers
             that support badging. If zero or unspecified, systems that support badging use the default, which is to
             increment a number displayed on the long-press menu each time a new notification arrives (optional).
-        :param visibility: set the visibility of the notification. The default level, VISIBILITY_PRIVATE.
+        :param visibility: set the visibility of the notification (optional). If not specified, FCM defaults to PRIVATE.
         :param proxy: set the proxy behaviour. The default behaviour is set to None.
         :param fcm_options: Android-specific FCM options (optional).
         :param direct_boot_ok: Allow delivery in direct boot mode (optional).
@@ -263,40 +263,44 @@ class AndroidConfig:
         :param restricted_satellite_ok: Allow delivery on restricted satellite network (optional).
         :return: an instance of ``messages.AndroidConfig`` to be included in the resulting payload.
         """
+        notification: t.Optional[AndroidNotification] = AndroidNotification(
+            title=title,
+            body=body,
+            icon=icon,
+            color=color,
+            sound=sound,
+            tag=tag,
+            click_action=click_action,
+            body_loc_key=body_loc_key,
+            body_loc_args=body_loc_args or [],
+            title_loc_key=title_loc_key,
+            title_loc_args=title_loc_args or [],
+            channel_id=channel_id,
+            image=image,
+            ticker=ticker,
+            sticky=sticky,
+            event_timestamp=event_timestamp,
+            local_only=local_only,
+            priority=notification_priority,
+            vibrate_timings_millis=vibrate_timings_millis,
+            default_vibrate_timings=default_vibrate_timings,
+            default_sound=default_sound,
+            light_settings=light_settings,
+            default_light_settings=default_light_settings,
+            notification_count=notification_count,
+            visibility=visibility,
+            proxy=proxy,
+        )
+        if notification == AndroidNotification():
+            notification = None
+
         return cls(
             collapse_key=collapse_key,
             priority=priority,
             ttl=f"{int(ttl.total_seconds()) if isinstance(ttl, timedelta) else ttl}s",
             restricted_package_name=restricted_package_name,
             data={str(key): "null" if value is None else str(value) for key, value in data.items()} if data else {},
-            notification=AndroidNotification(
-                title=title,
-                body=body,
-                icon=icon,
-                color=color,
-                sound=sound,
-                tag=tag,
-                click_action=click_action,
-                body_loc_key=body_loc_key,
-                body_loc_args=body_loc_args or [],
-                title_loc_key=title_loc_key,
-                title_loc_args=title_loc_args or [],
-                channel_id=channel_id,
-                image=image,
-                ticker=ticker,
-                sticky=sticky,
-                event_timestamp=event_timestamp,
-                local_only=local_only,
-                priority=notification_priority,
-                vibrate_timings_millis=vibrate_timings_millis,
-                default_vibrate_timings=default_vibrate_timings,
-                default_sound=default_sound,
-                light_settings=light_settings,
-                default_light_settings=default_light_settings,
-                notification_count=notification_count,
-                visibility=visibility,
-                proxy=proxy,
-            ),
+            notification=notification,
             fcm_options=fcm_options,
             direct_boot_ok=direct_boot_ok,
             bandwidth_constrained_ok=bandwidth_constrained_ok,
@@ -499,21 +503,25 @@ class APNSConfig:
         if collapse_key:
             apns_headers["apns-collapse-id"] = str(collapse_key)
 
+        aps_alert: t.Optional[ApsAlert] = ApsAlert(
+            title=title,
+            subtitle=subtitle,
+            body=alert,
+            loc_key=loc_key,
+            loc_args=loc_args or [],
+            title_loc_key=title_loc_key,
+            title_loc_args=title_loc_args or [],
+            action_loc_key=action_loc_key,
+            launch_image=launch_image,
+        )
+        if aps_alert == ApsAlert():
+            aps_alert = None
+
         return cls(
             headers=apns_headers,
             payload=APNSPayload(
                 aps=Aps(
-                    alert=ApsAlert(
-                        title=title,
-                        subtitle=subtitle,
-                        body=alert,
-                        loc_key=loc_key,
-                        loc_args=loc_args or [],
-                        title_loc_key=title_loc_key,
-                        title_loc_args=title_loc_args or [],
-                        action_loc_key=action_loc_key,
-                        launch_image=launch_image,
-                    ),
+                    alert=aps_alert,
                     badge=badge,
                     sound="default" if alert and sound is None else sound,
                     category=category,

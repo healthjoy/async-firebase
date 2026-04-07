@@ -123,6 +123,60 @@ def test_apns_config_build_with_new_fields(freezer):
     assert config.live_activity_token == "live-token-123"
 
 
+def test_android_config_build_data_only():
+    """AndroidConfig.build() should omit notification when no notification fields are provided."""
+    config = AndroidConfig.build(
+        priority="high",
+        ttl=2419200,
+        collapse_key="NEW_MESSAGE",
+        data={"key": "value"},
+    )
+    assert config.notification is None
+    assert config.collapse_key == "NEW_MESSAGE"
+    assert config.priority == "high"
+    assert config.ttl == "2419200s"
+    assert config.data == {"key": "value"}
+
+
+def test_android_config_build_with_single_notification_field():
+    """AndroidConfig.build() should create notification when any notification field is set."""
+    config = AndroidConfig.build(
+        priority="high",
+        tag="MY_TAG",
+    )
+    assert config.notification is not None
+    assert config.notification.tag == "MY_TAG"
+
+
+def test_apns_config_build_data_only(freezer):
+    """APNSConfig.build() should omit alert when no alert fields are provided."""
+    config = APNSConfig.build(
+        priority="high",
+        ttl=2419200,
+        collapse_key="NEW_MESSAGE",
+        badge=0,
+        category="NEW_MESSAGE_CATEGORY",
+        thread_id="NEW_MESSAGE",
+        custom_data={"bundle": "hj_groups"},
+    )
+    assert config.payload.aps.alert is None
+    assert config.payload.aps.badge == 0
+    assert config.payload.aps.category == "NEW_MESSAGE_CATEGORY"
+    assert config.payload.aps.thread_id == "NEW_MESSAGE"
+    assert config.payload.aps.custom_data == {"bundle": "hj_groups"}
+    assert config.payload.aps.sound is None
+
+
+def test_apns_config_build_with_single_alert_field(freezer):
+    """APNSConfig.build() should create alert when any alert field is set."""
+    config = APNSConfig.build(
+        priority="high",
+        title="Hello",
+    )
+    assert config.payload.aps.alert is not None
+    assert config.payload.aps.alert.title == "Hello"
+
+
 def test_webpush_config_build_vibrate_list():
     """WebpushConfig.build() should accept vibrate as a list of ints."""
     config = WebpushConfig.build(
