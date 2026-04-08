@@ -68,9 +68,15 @@ if __name__ == "__main__":
 
 ``send()`` returns an ``FCMResponse`` with ``success`` (bool), ``message_id`` (str), and ``exception`` (on failure) attributes.
 
+## Message Types
+
+FCM supports **notification messages** (displayed automatically by the system when the app is in the background), **data messages** (handled entirely by your app), and a combination of both. Use notification messages for user-visible alerts; use data messages for silent pushes, background syncs, or when your app needs full control over how content is processed.
+
+See [Set the message type](https://firebase.google.com/docs/cloud-messaging/customize-messages/set-message-type) in the official Firebase documentation for details.
+
 ## Platform Configs
 
-Build platform-specific configs using the ``.build()`` classmethod:
+Build platform-specific configs using the ``.build()`` classmethod. The builders support both notification and data-only messages — simply omit notification/alert fields to produce a data-only payload.
 
 ### Android
 
