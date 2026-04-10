@@ -1,6 +1,6 @@
 [project]
 name = "async-firebase"
-version = "6.1.0"
+version = "6.1.1"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -37,7 +37,7 @@ Repository = "https://github.com/healthjoy/async-firebase"
 [dependency-groups]
 dev = [
     "pre-commit~=4.2",
-    "cryptography>=44.0.2,<46.1.0",
+    "cryptography>=46.0.7,<46.1.0",
     "Faker~=15.3",
     "pytest~=8.3",
     "pytest-asyncio~=0.26",

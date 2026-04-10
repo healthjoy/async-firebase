@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.1.1
+* Resolve a security concern by updating `cryptography` package to `46.0.7`.
+  * [Medium] cryptography vulnerable to buffer overflow if non-contiguous buffers were passed to APIs ([CVE-2026-39892](https://nvd.nist.gov/vuln/detail/CVE-2026-39892))
+
 ## 6.1.0
 * ``AndroidConfig.build()`` and ``APNSConfig.build()`` now support data-only FCM messages. When no notification/alert fields are provided, the builder omits the ``notification`` (Android) or ``alert`` (APNS) from the payload, producing a clean data-only message.
 * ``AndroidConfig.build()`` ``visibility`` parameter default changed from ``Visibility.PRIVATE`` to ``None``. FCM applies ``PRIVATE`` server-side when omitted, so wire behavior is unchanged.
