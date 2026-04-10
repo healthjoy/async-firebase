@@ -37,7 +37,7 @@ Repository = "https://github.com/healthjoy/async-firebase"
 [dependency-groups]
 dev = [
     "pre-commit~=4.2",
-    "cryptography>=44.0.2,<46.1.0",
+    "cryptography>=46.0.7,<46.1.0",
     "Faker~=15.3",
     "pytest~=8.3",
     "pytest-asyncio~=0.26",
