@@ -129,6 +129,7 @@ def test_aps_encoder_does_not_modify_custom_data():
         "dict_attr": {"a": "A", "b": "B"},
         "bool_attr": False,
     }
+    custom_data_before = custom_data.copy()
 
     aps = Aps(
         alert="push text",
@@ -142,7 +143,7 @@ def test_aps_encoder_does_not_modify_custom_data():
 
     assert aps.custom_data == custom_data
     aps_encoder(aps)
-    assert len(custom_data) == 6
+    assert custom_data == custom_data_before
     assert aps.custom_data == custom_data
 
 
