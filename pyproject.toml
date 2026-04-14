@@ -34,7 +34,7 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/healthjoy/async-firebase"
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pre-commit~=4.2",
     "cryptography>=46.0.7,<46.1.0",
