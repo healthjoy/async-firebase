@@ -10,6 +10,7 @@ to a topic (not a device token) so FCM validates the full payload without
 short-circuiting on token validation.
 """
 
+import json
 import os
 from datetime import datetime
 
@@ -34,6 +35,19 @@ from async_firebase.serialization import serialize_message
 
 _service_account_path = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY")
 
+
+def _has_valid_credentials() -> bool:
+    """Check that the service account file exists and contains valid JSON."""
+    if not _service_account_path or not os.path.isfile(_service_account_path):
+        return False
+    try:
+        with open(_service_account_path) as f:
+            json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return False
+    return True
+
+
 # Topic used for dry_run validation — no real subscribers needed.
 _TEST_TOPIC = "payload-validation-test"
 
@@ -41,8 +55,8 @@ pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.integration,
     pytest.mark.skipif(
-        not _service_account_path or not os.path.isfile(_service_account_path),
-        reason="FIREBASE_SERVICE_ACCOUNT_KEY not set or file not found",
+        not _has_valid_credentials(),
+        reason="FIREBASE_SERVICE_ACCOUNT_KEY not set or not valid JSON (expected in Dependabot runs)",
     ),
 ]
 
