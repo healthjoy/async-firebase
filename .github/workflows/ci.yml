@@ -55,7 +55,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --all-extras
 
       - name: Log currently installed packages and versions
         run: poetry show
@@ -89,7 +89,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --all-extras
 
       - name: Check code style
         run: poetry run ruff check async_firebase && poetry run ruff format --check async_firebase
@@ -123,7 +123,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --all-extras
 
       - name: Static type checker
         run: |
@@ -162,7 +162,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --all-extras
 
       - name: Run pytest
         run: poetry run pytest tests/
@@ -204,7 +204,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --all-extras
 
       - name: Run FCM payload validation tests
         env:
