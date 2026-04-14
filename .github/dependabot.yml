@@ -4,6 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    rebase-strategy: "auto"
     groups:
       dev-dependencies:
         dependency-type: "development"
@@ -11,3 +12,4 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    rebase-strategy: "auto"
