@@ -1,5 +1,8 @@
 # Changelog
 
+## 6.1.2
+* Relax `google-auth` constraint from `~=2.38.0` to `>=2.38.0,<3.0.0`, allowing consumers to pick up patch and minor releases of `google-auth` (currently `2.52.0`) without a release of this package. No API changes.
+
 ## 6.1.1
 * Resolve a security concern by updating `cryptography` package to `46.0.7`.
   * [Medium] cryptography vulnerable to buffer overflow if non-contiguous buffers were passed to APIs ([CVE-2026-39892](https://nvd.nist.gov/vuln/detail/CVE-2026-39892))
