@@ -49,7 +49,7 @@ update:
 .PHONY: setup_dev
 setup_dev:
 	@echo "$(BOLD)DEV setup$(RESET)"
-	@poetry install --only dev
+	@poetry install --all-extras
 	@echo "$(BOLD)Done!$(RESET)"
 
 .PHONY: clean
