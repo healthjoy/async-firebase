@@ -497,6 +497,32 @@ async def test_send_each_for_multicast(
         assert message.token is not None
 
 
+async def test_send_each_for_multicast_fids(fake_async_fcm_client_w_creds):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    send_each_mock = mock.AsyncMock()
+    fake_async_fcm_client_w_creds.send_each = send_each_mock
+    await fake_async_fcm_client_w_creds.send_each_for_multicast(
+        MulticastMessage(data={"k": "v"}, fids=["fid-1", "fid-2"]),
+    )
+    send_each_argument = send_each_mock.call_args[0][0]
+    assert isinstance(send_each_argument, list)
+    assert [message.fid for message in send_each_argument] == ["fid-1", "fid-2"]
+    for message in send_each_argument:
+        assert message.token is None
+
+
+async def test_send_each_for_multicast_mixed_targets(fake_async_fcm_client_w_creds):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    send_each_mock = mock.AsyncMock()
+    fake_async_fcm_client_w_creds.send_each = send_each_mock
+    await fake_async_fcm_client_w_creds.send_each_for_multicast(
+        MulticastMessage(data={"k": "v"}, tokens=["token-1"], fids=["fid-1"]),
+    )
+    send_each_argument = send_each_mock.call_args[0][0]
+    assert [message.token for message in send_each_argument] == ["token-1", None]
+    assert [message.fid for message in send_each_argument] == [None, "fid-1"]
+
+
 @pytest.mark.parametrize(
     "message, exp_push_notification",
     (
@@ -507,6 +533,16 @@ async def test_send_each_for_multicast(
             ),
             {
                 "message": {"token": "token-1", "data": {"text": "hello"}},
+                "validate_only": True,
+            },
+        ),
+        (
+            Message(
+                fid="fid-1",
+                data={"text": "hello"},
+            ),
+            {
+                "message": {"fid": "fid-1", "data": {"text": "hello"}},
                 "validate_only": True,
             },
         ),
@@ -561,6 +597,21 @@ async def test_send_each_for_multicast(
 def test_serialize_message(message, exp_push_notification):
     push_notification = serialize_message(message, dry_run=True)
     assert push_notification == exp_push_notification
+
+
+@pytest.mark.parametrize(
+    "message",
+    (
+        Message(fid="fid-1", token="token-1", data={"text": "hello"}),
+        Message(fid="fid-1", topic="topic-1", data={"text": "hello"}),
+        Message(fid="fid-1", condition="'a' in topics", data={"text": "hello"}),
+        Message(token="token-1", topic="topic-1", data={"text": "hello"}),
+    ),
+)
+def test_serialize_message_multiple_targets(message):
+    """serialize_message should reject a message that targets more than one recipient."""
+    with pytest.raises(ValueError, match="Exactly one of fid, token, topic or condition must be specified"):
+        serialize_message(message, dry_run=True)
 
 
 def test_serialize_data_only_android_message():
@@ -774,11 +825,10 @@ async def test_send_each_too_many_messages(fake_async_fcm_client_w_creds):
 
 
 async def test_send_each_for_multicast_too_many_tokens(fake_async_fcm_client_w_creds):
-    """send_each_for_multicast should raise ValueError when too many tokens."""
+    """MulticastMessage should raise ValueError when too many tokens are provided."""
     tokens = [f"token-{i}" for i in range(MULTICAST_MESSAGE_MAX_DEVICE_TOKENS + 1)]
-    multicast = MulticastMessage(data={"k": "v"}, tokens=tokens)
-    with pytest.raises(ValueError, match="may contain up to"):
-        await fake_async_fcm_client_w_creds.send_each_for_multicast(multicast)
+    with pytest.raises(ValueError, match="Total number of tokens and fids must not exceed 500"):
+        MulticastMessage(data={"k": "v"}, tokens=tokens)
 
 
 async def test_send_each_wraps_async_firebase_error(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):

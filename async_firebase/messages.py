@@ -1,6 +1,7 @@
 """The module houses the message structures that can be used to construct a push notification payload."""
 
 import typing as t
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -737,7 +738,7 @@ class Message:
     A common message that can be sent via Firebase.
 
     Contains payload information as well as recipient information. In particular, the message must contain exactly one
-    of token, topic or condition fields.
+    of fid, token, topic or condition fields.
 
     Attributes:
     data: a dictionary of data fields (optional). All keys and values in the dictionary must be strings.
@@ -745,10 +746,11 @@ class Message:
     android: an instance of ``messages.AndroidConfig`` (optional).
     webpush: an instance of ``messages.WebpushConfig`` (optional).
     apns: an instance of ``messages.ApnsConfig`` (optional).
-    token: the registration token of the device to which the message should be sent.
+    token: Deprecated. Use ``fid`` instead. The registration token of the device to which the message should be sent.
     topic: name of the Firebase topic to which the message should be sent (optional).
     condition: the Firebase condition to which the message should be sent (optional).
     fcm_options: platform independent options for features provided by the FCM SDKs.
+    fid: the Firebase installation ID of an FCM registered app instance to which the message should be sent (optional).
     """
 
     token: t.Optional[str] = None
@@ -760,45 +762,93 @@ class Message:
     topic: t.Optional[str] = None
     condition: t.Optional[str] = None
     fcm_options: t.Optional[FcmOptions] = field(default=None)
+    fid: t.Optional[str] = None
+
+    def __post_init__(self):
+        if self.token is not None:
+            warnings.warn(
+                "Message.token is deprecated. Use Message.fid instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+
+MULTICAST_MESSAGE_MAX_TARGETS = 500
 
 
 @dataclass
 class MulticastMessage:
     """
-    A message that can be sent to multiple tokens via Firebase.
+    A message that can be sent to multiple tokens or fids via Firebase.
 
     Attributes:
-    tokens: a list of registration tokens of targeted devices.
+    tokens: Deprecated. Use ``fids`` instead. A list of registration tokens of targeted devices (optional).
     data: a dictionary of data fields (optional). All keys and values in the dictionary must be strings.
     notification: an instance of ``messages.Notification`` (optional).
     android: an instance of ``messages.AndroidConfig`` (optional).
     webpush: an instance of ``messages.WebpushConfig`` (optional).
     apns: an instance of ``messages.ApnsConfig`` (optional).
     fcm_options: platform independent options for features provided by the FCM SDKs.
+    fids: a list of Firebase installation IDs of targeted app instances (optional).
     """
 
-    tokens: t.List[str]
+    tokens: t.Optional[t.List[str]] = None
     data: t.Dict[str, str] = field(default_factory=dict)
     notification: t.Optional[Notification] = field(default=None)
     android: t.Optional[AndroidConfig] = field(default=None)
     webpush: t.Optional[WebpushConfig] = field(default=None)
     apns: t.Optional[APNSConfig] = field(default=None)
     fcm_options: t.Optional[FcmOptions] = field(default=None)
+    fids: t.Optional[t.List[str]] = None
+
+    def __post_init__(self):
+        if self.tokens is not None:
+            warnings.warn(
+                "MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if self.tokens is None and self.fids is None:
+            raise ValueError("Must specify at least one of MulticastMessage.tokens or MulticastMessage.fids.")
+
+        tokens_len = len(self.tokens) if self.tokens is not None else 0
+        fids_len = len(self.fids) if self.fids is not None else 0
+        if tokens_len + fids_len > MULTICAST_MESSAGE_MAX_TARGETS:
+            raise ValueError("Total number of tokens and fids must not exceed 500.")
 
     def to_messages(self) -> t.List["Message"]:
-        """Expand this multicast message into a list of individual Message objects, one per token."""
-        return [
-            Message(
-                token=token,
-                data=self.data,
-                notification=self.notification,
-                android=self.android,
-                webpush=self.webpush,
-                apns=self.apns,
-                fcm_options=self.fcm_options,
+        """Expand this multicast message into a list of individual Message objects, one per token or fid."""
+        messages: t.List["Message"] = []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            if self.tokens is not None:
+                messages.extend(
+                    Message(
+                        token=token,
+                        data=self.data,
+                        notification=self.notification,
+                        android=self.android,
+                        webpush=self.webpush,
+                        apns=self.apns,
+                        fcm_options=self.fcm_options,
+                    )
+                    for token in self.tokens
+                )
+        if self.fids is not None:
+            messages.extend(
+                Message(
+                    fid=fid,
+                    data=self.data,
+                    notification=self.notification,
+                    android=self.android,
+                    webpush=self.webpush,
+                    apns=self.apns,
+                    fcm_options=self.fcm_options,
+                )
+                for fid in self.fids
             )
-            for token in self.tokens
-        ]
+        return messages
 
 
 @dataclass

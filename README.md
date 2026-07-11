@@ -20,7 +20,7 @@
 
   * Extremely lightweight and does not rely on ``firebase-admin`` which is hefty
   * Send push notifications to Android, iOS, and Web devices
-  * Multicast push notifications (up to 500 tokens per call)
+  * Multicast push notifications (up to 500 targets per call)
   * Send to topics and topic conditions
   * TTL, priority, and collapse-key support
   * Dry-run mode for testing
@@ -170,7 +170,7 @@ async with AsyncFirebaseClient() as client:
 
     multicast = MulticastMessage(
         android=android_config,
-        tokens=["token_1", "token_2", "token_3"],
+        fids=["fid_1", "fid_2", "fid_3"],
     )
     batch_response = await client.send_each_for_multicast(multicast)
 
@@ -178,7 +178,9 @@ async with AsyncFirebaseClient() as client:
         print(resp.success, resp.message_id)
 ```
 
-``send_each_for_multicast()`` returns an ``FCMBatchResponse`` containing individual ``FCMResponse`` objects for each token.
+``send_each_for_multicast()`` returns an ``FCMBatchResponse`` containing individual ``FCMResponse`` objects for each target.
+
+``MulticastMessage`` accepts ``fids`` (Firebase installation IDs), ``tokens`` (deprecated), or both — up to 500 targets combined.
 
 ## Topics
 
@@ -197,7 +199,7 @@ async with AsyncFirebaseClient() as client:
     response = await client.send(message)
 ```
 
-A ``Message`` accepts exactly one of: ``token``, ``topic``, or ``condition``.
+A ``Message`` accepts exactly one of: ``fid``, ``token``, ``topic``, or ``condition``. ``token`` is deprecated in favor of ``fid`` (the Firebase installation ID of the target app instance).
 
 ### Managing topic subscriptions
 

@@ -1,6 +1,6 @@
 [project]
 name = "async-firebase"
-version = "6.1.2"
+version = "6.2.0"
 description = "Async Firebase Client - a Python asyncio client to interact with Firebase Cloud Messaging in an easy way."
 license = "MIT"
 authors = [
@@ -46,7 +46,7 @@ dev = [
     "pytest-freezer~=0.4.9",
     "pytest-httpx~=0.35",
     "ruff>=0.9.6",
-    "mypy>=1.15,<1.21",
+    "mypy>=1.15,<2.2",
 ]
 
 [tool.pytest.ini_options]
