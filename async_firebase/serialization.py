@@ -199,4 +199,9 @@ def serialize_message(message: Message, *, dry_run: bool = False) -> t.Dict[str,
     if len(push_notification["message"]) == 1:
         logging.warning("No data has been provided to construct push notification payload")
         raise ValueError("``messages.PushNotification`` cannot be assembled as data has not been provided")
+
+    target_count = sum(target in push_notification["message"] for target in ("fid", "token", "topic", "condition"))
+    if target_count != 1:
+        raise ValueError("Exactly one of fid, token, topic or condition must be specified.")
+
     return push_notification

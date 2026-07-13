@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.2.0
+* Add support for the Firebase installation ID (``fid``), the successor to the registration ``token``.
+  * ``Message`` gains a ``fid`` field. A message must target exactly one of ``fid``, ``token``, ``topic`` or ``condition`` — this is now validated during serialization.
+  * ``MulticastMessage`` gains a ``fids`` field and ``tokens`` is now optional. ``tokens`` and ``fids`` may be combined, up to 500 targets total.
+  * ``Message.token`` and ``MulticastMessage.tokens`` are deprecated in favor of ``fid``/``fids`` and now emit a ``DeprecationWarning`` when used.
+
 ## 6.1.2
 * Relax `google-auth` constraint from `~=2.38.0` to `>=2.38.0,<3.0.0`, allowing consumers to pick up patch and minor releases of `google-auth` (currently `2.52.0`) without a release of this package. No API changes.
 

@@ -138,12 +138,7 @@ class AsyncFirebaseClient(AsyncClientBase):
         *,
         dry_run: bool = False,
     ) -> FCMBatchResponse:
-        if len(multicast_message.tokens) > MULTICAST_MESSAGE_MAX_DEVICE_TOKENS:
-            raise ValueError(
-                f"A single ``messages.MulticastMessage`` may contain up to {MULTICAST_MESSAGE_MAX_DEVICE_TOKENS} "
-                "device tokens."
-            )
-
+        # The ``tokens``/``fids`` count is validated at ``MulticastMessage`` construction time.
         return await self.send_each(multicast_message.to_messages(), dry_run=dry_run)
 
     async def _make_topic_management_request(

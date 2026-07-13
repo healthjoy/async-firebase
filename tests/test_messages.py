@@ -1,5 +1,6 @@
 """Tests for async_firebase.messages module."""
 
+import warnings
 from datetime import datetime
 from unittest import mock
 
@@ -14,6 +15,9 @@ from async_firebase.messages import (
     APNSFCMOptions,
     CriticalSound,
     LightSettings,
+    Message,
+    MulticastMessage,
+    Notification,
     NotificationProxy,
     TopicManagementResponse,
     Visibility,
@@ -184,3 +188,79 @@ def test_webpush_config_build_vibrate_list():
         vibrate=[200, 100, 200],
     )
     assert config.notification.vibrate == [200, 100, 200]
+
+
+class TestMessageFid:
+    def test_fid_field(self):
+        message = Message(fid="fid-1")
+        assert message.fid == "fid-1"
+        assert message.token is None
+
+    def test_token_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning, match="Message.token is deprecated. Use Message.fid instead."):
+            Message(token="token-1")
+
+    def test_fid_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Message(fid="fid-1")
+
+
+class TestMulticastMessageFids:
+    def test_fids_field(self):
+        message = MulticastMessage(fids=["fid-1", "fid-2"])
+        assert message.fids == ["fid-1", "fid-2"]
+        assert message.tokens is None
+
+    def test_no_targets_raises(self):
+        with pytest.raises(
+            ValueError,
+            match="Must specify at least one of MulticastMessage.tokens or MulticastMessage.fids.",
+        ):
+            MulticastMessage()
+
+    def test_mixed_targets(self):
+        message = MulticastMessage(tokens=["token-1"], fids=["fid-1"])
+        assert message.tokens == ["token-1"]
+        assert message.fids == ["fid-1"]
+
+    def test_fids_over_500(self):
+        with pytest.raises(ValueError, match="Total number of tokens and fids must not exceed 500"):
+            MulticastMessage(fids=["fid" for _ in range(501)])
+
+    def test_combined_over_500(self):
+        with pytest.raises(ValueError, match="Total number of tokens and fids must not exceed 500"):
+            MulticastMessage(tokens=["token" for _ in range(250)], fids=["fid" for _ in range(251)])
+
+    def test_tokens_deprecation_warning(self):
+        with pytest.warns(
+            DeprecationWarning,
+            match="MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.",
+        ):
+            MulticastMessage(tokens=["token-1"])
+
+    def test_fids_do_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            MulticastMessage(fids=["fid-1"])
+
+    def test_to_messages_expands_tokens_and_fids(self):
+        notification = Notification(title="Title", body="Body")
+        multicast = MulticastMessage(
+            tokens=["token-1"],
+            fids=["fid-1", "fid-2"],
+            data={"k": "v"},
+            notification=notification,
+        )
+        messages = multicast.to_messages()
+        assert [m.token for m in messages] == ["token-1", None, None]
+        assert [m.fid for m in messages] == [None, "fid-1", "fid-2"]
+        assert all(m.data == {"k": "v"} and m.notification == notification for m in messages)
+
+    def test_to_messages_suppresses_token_deprecation_warning(self):
+        multicast = MulticastMessage(fids=["fid-1"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            multicast.tokens = ["token-1"]
+            messages = multicast.to_messages()
+        assert len(messages) == 2
