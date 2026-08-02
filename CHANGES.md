@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.2.1
+* Resolve security concerns by updating the transitive `pyasn1` dependency (pulled in via `google-auth`) to `0.6.4`. No API changes.
+  * [High] pyasn1 BER/CER/DER decoder denial of service via unbounded long-form tag IDs ([GHSA-m4p7-r5rc-7g4j](https://github.com/advisories/GHSA-m4p7-r5rc-7g4j))
+  * [High] Quadratic complexity in OBJECT IDENTIFIER and RELATIVE-OID processing allows denial of service ([GHSA-8ppf-4f7h-5ppj](https://github.com/advisories/GHSA-8ppf-4f7h-5ppj))
+  * [High] Uncontrolled resource consumption when converting decoded REAL values ([GHSA-hm4w-wwcw-mr6r](https://github.com/advisories/GHSA-hm4w-wwcw-mr6r))
+
 ## 6.2.0
 * Add support for the Firebase installation ID (``fid``), the successor to the registration ``token``.
   * ``Message`` gains a ``fid`` field. A message must target exactly one of ``fid``, ``token``, ``topic`` or ``condition`` — this is now validated during serialization.
