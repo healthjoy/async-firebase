@@ -130,3 +130,6 @@ dmypy.json
 
 .idea
 .vscode/
+
+# Agent tooling scratch output
+docs/superpowers/

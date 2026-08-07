@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+* Migrate the project's tooling from Poetry to [uv](https://docs.astral.sh/uv/). This changes
+  development workflow only — the published package, its runtime dependencies, and the
+  `hatchling` build backend are unchanged.
+  * **Breaking (development only):** the `dev` extra has been removed. `pip install async-firebase[dev]`
+    no longer works; dev dependencies now live in a PEP 735 `[dependency-groups]` table and are
+    installed with `uv sync`. This affects contributors only, not consumers of the library.
+  * Contributors with an existing Poetry-managed environment should run `rm -rf .venv && make setup_dev`.
+
 ## 6.2.1
 * Resolve security concerns by updating the transitive `pyasn1` dependency (pulled in via `google-auth`) to `0.6.4`. No API changes.
   * [High] pyasn1 BER/CER/DER decoder denial of service via unbounded long-form tag IDs ([GHSA-m4p7-r5rc-7g4j](https://github.com/advisories/GHSA-m4p7-r5rc-7g4j))
