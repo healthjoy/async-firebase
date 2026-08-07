@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 6.2.2
+No runtime or API changes — this release contains internal tooling changes only, and the
+installed library code is identical to 6.2.1.
+
+* Bump the `cryptography` development dependency to `>=50.0.0` ([GHSA-g6cj-pr64-35w5](https://github.com/advisories/GHSA-g6cj-pr64-35w5)).
+  `cryptography` is used only by the test suite; it is not a runtime dependency of this package,
+  so installed environments are unaffected.
 * Migrate the project's tooling from Poetry to [uv](https://docs.astral.sh/uv/). This changes
   development workflow only — the published package, its runtime dependencies, and the
   `hatchling` build backend are unchanged.
