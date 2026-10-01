@@ -32,6 +32,7 @@ from async_firebase.responses import (
     _get_fcm_error_type,
     handle_fcm_error,
     handle_fcm_response,
+    handle_topic_subscription_error,
 )
 from async_firebase.serialization import cleanup_firebase_message, remove_null_values
 from async_firebase.utils import join_url
@@ -534,3 +535,53 @@ class TestFCMResponseHandler:
         """_get_fcm_error_type should return None when no details key at all."""
         result = _get_fcm_error_type({"message": "some error"})
         assert result is None
+
+
+# ── Topic subscription error handling ───────────────────────────────
+
+
+class TestTopicSubscriptionErrorHandler:
+    """Tests for resolving FCM v1 topic subscription errors into per-token reasons."""
+
+    def test_fcm_error_code_takes_precedence_over_status(self):
+        error = _make_http_status_error(
+            404,
+            json_body={
+                "error": {
+                    "code": 404,
+                    "message": "Requested entity was not found.",
+                    "status": "NOT_FOUND",
+                    "details": [{"@type": FCM_ERROR_TYPE_PREFIX, "errorCode": "UNREGISTERED"}],
+                }
+            },
+        )
+        assert handle_topic_subscription_error(error) == "UNREGISTERED"
+
+    def test_status_is_used_without_fcm_error_code(self):
+        error = _make_http_status_error(
+            409, json_body={"error": {"code": 409, "message": "Already exists", "status": "ALREADY_EXISTS"}}
+        )
+        assert handle_topic_subscription_error(error) == "ALREADY_EXISTS"
+
+    @pytest.mark.parametrize(
+        "status_code, exp_reason",
+        (
+            (409, "CONFLICT"),
+            (503, "UNAVAILABLE"),
+            (418, "UNKNOWN"),
+        ),
+    )
+    def test_http_status_is_used_for_non_json_body(self, status_code, exp_reason):
+        error = _make_http_status_error(status_code, content=b"Not JSON")
+        assert handle_topic_subscription_error(error) == exp_reason
+
+    @pytest.mark.parametrize(
+        "error, exp_reason",
+        (
+            (httpx.ReadTimeout("Connection read timed out"), "DEADLINE_EXCEEDED"),
+            (httpx.ConnectError("Failed to connect"), "UNAVAILABLE"),
+            (httpx.DecodingError("decode failure"), "UNKNOWN"),
+        ),
+    )
+    def test_transport_errors(self, error, exp_reason):
+        assert handle_topic_subscription_error(error) == exp_reason

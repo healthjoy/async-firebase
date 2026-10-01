@@ -2,7 +2,7 @@
 
 All HTTP-to-domain-error resolution and response parsing lives here.
 The three lookup dictionaries, resolution chain, and JSON parsing are
-internal implementation details. Callers use the four typed public functions.
+internal implementation details. Callers use the typed public functions below.
 """
 
 import logging
@@ -87,16 +87,18 @@ def _parse_platform_error(response: httpx.Response) -> dict:
     return error_data
 
 
+def _get_fcm_error_code(error_data: dict) -> t.Optional[str]:
+    for detail in error_data.get("details", []):
+        if detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
+            return detail.get("errorCode")
+    return None
+
+
 def _get_fcm_error_type(error_data: dict) -> t.Optional[t.Type[AsyncFirebaseError]]:
     if not error_data:
         return None
 
-    fcm_code = None
-    for detail in error_data.get("details", []):
-        if detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
-            fcm_code = detail.get("errorCode")
-            break
-
+    fcm_code = _get_fcm_error_code(error_data)
     if not fcm_code:
         return None
 
@@ -147,7 +149,7 @@ def _resolve_exception(error: httpx.HTTPError) -> AsyncFirebaseError:
     )
 
 
-# ── Public API: 4 typed functions ──────────────────────────────────
+# ── Public API: typed functions ────────────────────────────────────
 
 
 def handle_fcm_response(response: httpx.Response) -> FCMResponse:
@@ -168,6 +170,19 @@ def handle_topic_response(response: httpx.Response) -> TopicManagementResponse:
 def handle_topic_error(error: httpx.HTTPError) -> TopicManagementResponse:
     """Turn any httpx error into a TopicManagementResponse (with .exception set)."""
     return TopicManagementResponse(exception=_resolve_exception(error))
+
+
+def handle_topic_subscription_error(error: httpx.HTTPError) -> str:
+    """Turn an httpx error from an FCM v1 topic subscription request into a per-token error reason."""
+    if not isinstance(error, httpx.HTTPStatusError):
+        return _handle_request_error(error).code
+
+    error_data = _parse_platform_error(error.response)
+    return (
+        _get_fcm_error_code(error_data)
+        or error_data.get("status")
+        or _HTTP_STATUS_TO_ERROR_CODE.get(error.response.status_code, FcmErrorCode.UNKNOWN.value)
+    )
 
 
 # ── Backward-compatible handler classes ────────────────────────────

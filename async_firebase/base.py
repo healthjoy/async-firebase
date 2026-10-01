@@ -23,6 +23,7 @@ from async_firebase.responses import (
     handle_fcm_response,
     handle_topic_error,
     handle_topic_response,
+    handle_topic_subscription_error,
 )
 from async_firebase.utils import join_url
 
@@ -32,6 +33,7 @@ class AsyncClientBase:
 
     BASE_URL: str = "https://fcm.googleapis.com"
     FCM_ENDPOINT: str = "/v1/projects/{project_id}/messages:send"
+    FCM_REGISTRATIONS_ENDPOINT: str = "/v1/projects/{project_id}/registrations"
     IID_URL = "https://iid.googleapis.com"
     IID_HEADERS = {"access_token_auth": "true"}
     TOPIC_ADD_ACTION = "iid/v1:batchAdd"
@@ -203,6 +205,39 @@ class AsyncClientBase:
                 raw_fcm_response.elapsed,
             )
             return handle_topic_response(raw_fcm_response)
+
+    async def _send_topic_subscription_request(
+        self,
+        method: str,
+        url: str,
+        json_payload: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> t.Optional[str]:
+        """
+        Sends a single FCM v1 topic subscription request for one device token.
+
+        :param method: HTTP method, ``POST`` to subscribe or ``DELETE`` to unsubscribe.
+        :param url: topic subscription URL of the device token.
+        :param json_payload: request JSON payload.
+        :return: ``None`` on success, otherwise the error reason.
+        """
+        logging.debug("Requesting %s %s, payload: %s", method, url, json_payload)
+        try:
+            client = await self._get_client()
+            raw_fcm_response: httpx.Response = await client.request(
+                method,
+                url,
+                json=json_payload,
+                headers=await self.prepare_headers(),
+            )
+            raw_fcm_response.raise_for_status()
+        except httpx.HTTPError as exc:
+            return handle_topic_subscription_error(exc)
+        logging.debug(
+            "Response Code: %s, Time spent to make a request: %s",
+            raw_fcm_response.status_code,
+            raw_fcm_response.elapsed,
+        )
+        return None
 
     async def send_fcm_request(
         self,

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from datetime import datetime
@@ -6,10 +7,18 @@ from unittest import mock
 from importlib.metadata import version
 
 import pytest
+import httpx
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
-from async_firebase.client import AsyncFirebaseClient, MULTICAST_MESSAGE_MAX_DEVICE_TOKENS, BATCH_MAX_MESSAGES
+from async_firebase.client import (
+    AsyncFirebaseClient,
+    MULTICAST_MESSAGE_MAX_DEVICE_TOKENS,
+    BATCH_MAX_MESSAGES,
+    TOPIC_MANAGEMENT_MAX_CONCURRENCY,
+    TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS,
+    RequestLimits,
+)
 from async_firebase.errors import AsyncFirebaseError, FcmErrorCode, InternalError
 from async_firebase.serialization import serialize_message
 from async_firebase.messages import (
@@ -671,24 +680,294 @@ def test_build_webpush_config(fake_async_fcm_client_w_creds):
     )
 
 
+def _topic_subscriptions_url(client, device_token):
+    return (
+        f"https://fcm.googleapis.com/v1/projects/{client._credentials.project_id}"
+        f"/registrations/{device_token}/topicSubscriptions"
+    )
+
+
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_subscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
-    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
-    httpx_mock.add_response(
-        status_code=200,
-        json={"results": [{}, {}, {}]},
-    )
-    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
-        topic_name="test_topic", device_tokens=fake_multi_device_tokens
-    )
+@pytest.mark.parametrize("topic_name", ("test_topic", "/topics/test_topic"))
+async def test_subscribe_to_topic(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, topic_name, httpx_mock: HTTPXMock
+):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    for device_token in fake_multi_device_tokens:
+        httpx_mock.add_response(
+            method="POST",
+            url=f"{_topic_subscriptions_url(client, device_token)}?topic_name=test_topic",
+            json={},
+        )
+
+    response = await client.subscribe_devices_to_topic(topic_name=topic_name, device_tokens=fake_multi_device_tokens)
+
     assert isinstance(response, TopicManagementResponse)
     assert response.success_count == 3
     assert response.errors == []
     assert response.failure_count == 0
+    assert response.exception is None
+    for request in httpx_mock.get_requests():
+        assert request.read() == b"{}"
+        assert request.headers["Authorization"] == "Bearer fake-jwt-token"
+        assert "access_token_auth" not in request.headers
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+@pytest.mark.parametrize("topic_name", ("test_topic", "/topics/test_topic"))
+async def test_unsubscribe_from_topic(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, topic_name, httpx_mock: HTTPXMock
+):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    for device_token in fake_multi_device_tokens:
+        httpx_mock.add_response(
+            method="DELETE",
+            url=f"{_topic_subscriptions_url(client, device_token)}/test_topic?allow_missing=true",
+            json={},
+        )
+
+    response = await client.unsubscribe_devices_from_topic(
+        topic_name=topic_name, device_tokens=fake_multi_device_tokens
+    )
+
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.errors == []
+    assert response.failure_count == 0
+    assert response.exception is None
+    for request in httpx_mock.get_requests():
+        assert request.read() == b""
+
+
+@pytest.mark.parametrize(
+    "method_name, body, exp_errors",
+    (
+        (
+            "subscribe_devices_to_topic",
+            {"error": {"code": 409, "message": "Already exists", "status": "ALREADY_EXISTS"}},
+            [],
+        ),
+        ("subscribe_devices_to_topic", None, []),
+        (
+            "subscribe_devices_to_topic",
+            {"error": {"code": 409, "message": "Concurrent modification", "status": "ABORTED"}},
+            [TopicManagementErrorInfo(index=0, reason="ABORTED")],
+        ),
+        ("unsubscribe_devices_from_topic", None, [TopicManagementErrorInfo(index=0, reason="CONFLICT")]),
+    ),
+)
+async def test_topic_management_conflict(
+    fake_async_fcm_client_w_creds, fake_device_token, method_name, body, exp_errors, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(status_code=409, json=body)
+
+    response = await getattr(fake_async_fcm_client_w_creds, method_name)(
+        topic_name="test_topic", device_tokens=[fake_device_token]
+    )
+
+    assert response.errors == exp_errors
+    assert response.success_count == 1 - len(exp_errors)
+
+
+async def test_subscribe_to_topic_accepts_tuple_of_device_tokens(
+    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(json={})
+
+    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=(fake_device_token,)
+    )
+
+    assert response.success_count == 1
+
+
+async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):
+    client = fake_async_fcm_client_w_creds
+    token_attempts = 0
+
+    async def failing_access_token():
+        nonlocal token_attempts
+        token_attempts += 1
+        await asyncio.sleep(0)
+        raise KeyError("expires_in")
+
+    client._get_access_token = failing_access_token
+
+    with pytest.raises(KeyError):
+        await client.subscribe_devices_to_topic(
+            topic_name="test_topic", device_tokens=[f"token-{index}" for index in range(300)]
+        )
+    token_attempts_when_raised = token_attempts
+    await client.close()
+    await asyncio.sleep(0.01)
+
+    assert token_attempts == token_attempts_when_raised
+    assert client._http_client is None
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
 async def test_subscribe_to_topic_with_incorrect(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    first_token, unregistered_token, last_token = fake_multi_device_tokens
+    for device_token in (first_token, last_token):
+        httpx_mock.add_response(
+            url=f"{_topic_subscriptions_url(client, device_token)}?topic_name=test_topic", json={}
+        )
+    httpx_mock.add_response(
+        url=f"{_topic_subscriptions_url(client, unregistered_token)}?topic_name=test_topic",
+        status_code=404,
+        json={
+            "error": {
+                "code": 404,
+                "message": "Requested entity was not found.",
+                "status": "NOT_FOUND",
+                "details": [
+                    {"@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError", "errorCode": "UNREGISTERED"}
+                ],
+            }
+        },
+    )
+
+    response = await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+
+    assert response.success_count == 2
+    assert response.failure_count == 1
+    assert response.errors == [TopicManagementErrorInfo(index=1, reason="UNREGISTERED")]
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_unsubscribe_from_topic_unauthenticated(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        status_code=401,
+        json={
+            "error": {
+                "code": 401,
+                "message": "Request had invalid authentication credentials.",
+                "status": "UNAUTHENTICATED",
+            }
+        },
+        is_reusable=True,
+    )
+
+    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+        topic_name="test_topic", device_tokens=fake_multi_device_tokens
+    )
+
+    assert response.exception is None
+    assert response.success_count == 0
+    assert response.failure_count == 3
+    assert [error.reason for error in response.errors] == [FcmErrorCode.UNAUTHENTICATED.value] * 3
+
+
+async def test_subscribe_to_topic_timeout(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_exception(httpx.ReadTimeout("Connection read timed out"))
+
+    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=[fake_device_token]
+    )
+
+    assert response.exception is None
+    assert response.errors == [TopicManagementErrorInfo(index=0, reason=FcmErrorCode.DEADLINE_EXCEEDED.value)]
+
+
+@pytest.mark.parametrize("method_name", ("subscribe_devices_to_topic", "unsubscribe_devices_from_topic"))
+@pytest.mark.parametrize(
+    "device_tokens, topic_name, exp_message",
+    (
+        ([], "test_topic", "device_tokens must not be empty"),
+        ("token", "test_topic", "device_tokens must be a sequence of strings"),
+        ({"token"}, "test_topic", "device_tokens must be a sequence of strings"),
+        (["token", ""], "test_topic", "device_tokens must contain only non-empty strings"),
+        (["token", 1], "test_topic", "device_tokens must contain only non-empty strings"),
+        (["token"] * (TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS + 1), "test_topic", "more than 1000 device tokens"),
+        (["token"], "", "topic_name must be a non-empty string"),
+        (["token"], "/topics/", "Malformed topic name"),
+        (["token"], "bad topic!", "Malformed topic name"),
+        (["token"], "/topics/news/sports", "Malformed topic name"),
+    ),
+)
+async def test_topic_management_invalid_arguments(
+    fake_async_fcm_client_w_creds, method_name, device_tokens, topic_name, exp_message
+):
+    with pytest.raises(ValueError, match=exp_message):
+        await getattr(fake_async_fcm_client_w_creds, method_name)(device_tokens=device_tokens, topic_name=topic_name)
+
+
+@pytest.mark.parametrize(
+    "max_connections, device_tokens_count, exp_max_in_flight",
+    (
+        (2, 5, 2),
+        (None, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+        (500, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+    ),
+)
+async def test_topic_management_bounds_concurrency(
+    fake_service_account, max_connections, device_tokens_count, exp_max_in_flight, httpx_mock: HTTPXMock
+):
+    client = AsyncFirebaseClient(request_limits=RequestLimits(max_connections=max_connections))
+    client.creds_from_service_account_info(fake_service_account)
+    client._get_access_token = fake__get_access_token
+    in_flight = 0
+    max_in_flight = 0
+
+    async def track_concurrency(request):
+        nonlocal in_flight, max_in_flight
+        in_flight += 1
+        max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0)
+        in_flight -= 1
+        return httpx.Response(200, json={})
+
+    httpx_mock.add_callback(track_concurrency, is_reusable=True)
+
+    response = await client.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=[f"token-{index}" for index in range(device_tokens_count)]
+    )
+
+    assert response.success_count == device_tokens_count
+    assert max_in_flight == exp_max_in_flight
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_subscribe_to_topic_legacy(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        method="POST",
+        url="https://iid.googleapis.com/iid/v1:batchAdd",
+        status_code=200,
+        json={"results": [{}, {}, {}]},
+    )
+    with pytest.warns(DeprecationWarning, match="subscribe_devices_to_topic_legacy is deprecated"):
+        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic_legacy(
+            topic_name="test_topic", device_tokens=fake_multi_device_tokens
+        )
+    assert isinstance(response, TopicManagementResponse)
+    assert response.success_count == 3
+    assert response.errors == []
+    assert response.failure_count == 0
+    request = httpx_mock.get_request()
+    assert request.headers["access_token_auth"] == "true"
+    assert json.loads(request.read()) == {
+        "to": "/topics/test_topic",
+        "registration_tokens": fake_multi_device_tokens,
+    }
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_subscribe_to_topic_legacy_with_incorrect(
         fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -698,9 +977,10 @@ async def test_subscribe_to_topic_with_incorrect(
         status_code=200,
         json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
     )
-    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
-        topic_name='test_topic', device_tokens=device_tokens
-    )
+    with pytest.warns(DeprecationWarning):
+        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic_legacy(
+            topic_name='test_topic', device_tokens=device_tokens
+        )
     assert isinstance(response, TopicManagementResponse)
     assert response.success_count == 3
     assert response.failure_count == 1
@@ -712,15 +992,20 @@ async def test_subscribe_to_topic_with_incorrect(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_unsubscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock):
+async def test_unsubscribe_from_topic_legacy(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(
+        method="POST",
+        url="https://iid.googleapis.com/iid/v1:batchRemove",
         status_code=200,
         json={"results": [{}, {}, {}]},
     )
-    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
-        topic_name="test_topic", device_tokens=fake_multi_device_tokens
-    )
+    with pytest.warns(DeprecationWarning, match="unsubscribe_devices_from_topic_legacy is deprecated"):
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+            topic_name="test_topic", device_tokens=fake_multi_device_tokens
+        )
     assert isinstance(response, TopicManagementResponse)
     assert response.success_count == 3
     assert response.errors == []
@@ -728,7 +1013,7 @@ async def test_unsubscribe_to_topic(fake_async_fcm_client_w_creds, fake_multi_de
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_unsubscribe_to_topic_with_incorrect(
+async def test_unsubscribe_from_topic_legacy_with_incorrect(
         fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -738,9 +1023,10 @@ async def test_unsubscribe_to_topic_with_incorrect(
         status_code=200,
         json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
     )
-    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
-        topic_name='test_topic', device_tokens=device_tokens
-    )
+    with pytest.warns(DeprecationWarning):
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+            topic_name='test_topic', device_tokens=device_tokens
+        )
     assert isinstance(response, TopicManagementResponse)
     assert response.success_count == 3
     assert response.failure_count == 1
@@ -752,7 +1038,7 @@ async def test_unsubscribe_to_topic_with_incorrect(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_send_topic_management_unauthenticated(
+async def test_send_topic_management_legacy_unauthenticated(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -769,9 +1055,10 @@ async def test_send_topic_management_unauthenticated(
             }
         },
     )
-    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
-        topic_name="test_topic", device_tokens=fake_multi_device_tokens
-    )
+    with pytest.warns(DeprecationWarning):
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+            topic_name="test_topic", device_tokens=fake_multi_device_tokens
+        )
 
     assert isinstance(response, TopicManagementResponse)
     assert not response.success_count

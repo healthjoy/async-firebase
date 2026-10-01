@@ -62,6 +62,17 @@ def test_topic_management_response_no_results():
         TopicManagementResponse(resp=mock_response)
 
 
+def test_topic_management_response_from_error_reasons():
+    """TopicManagementResponse.from_error_reasons() should count successes and keep the index of each failure."""
+    response = TopicManagementResponse.from_error_reasons([None, "UNREGISTERED", None, "INVALID_ARGUMENT"])
+
+    assert response.success_count == 2
+    assert response.failure_count == 2
+    assert [(error.index, error.reason) for error in response.errors] == [(1, "UNREGISTERED"), (3, "INVALID_ARGUMENT")]
+    assert response.resp is None
+    assert response.exception is None
+
+
 def test_android_config_build_with_new_fields(freezer):
     """AndroidConfig.build() should pass through all new AndroidNotification fields."""
     config = AndroidConfig.build(

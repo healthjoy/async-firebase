@@ -220,7 +220,14 @@ async with AsyncFirebaseClient() as client:
         device_tokens=["token_1", "token_2"],
         topic_name="breaking-news",
     )
+
+    for error in response.errors:
+        print(f"Token at index {error.index} failed: {error.reason}")
 ```
+
+Topic subscriptions are managed through the FCM v1 API, which makes one request per device token (up to 1000 tokens per call). Failures, including authentication errors, are reported per token in ``response.errors``. ``topic_name`` may include the ``/topics/`` prefix.
+
+``subscribe_devices_to_topic_legacy()`` and ``unsubscribe_devices_from_topic_legacy()`` keep the previous Instance ID API behavior and are deprecated.
 
 ## Advanced Usage
 
