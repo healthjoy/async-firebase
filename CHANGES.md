@@ -5,11 +5,13 @@
   * ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` now call the FCM v1 topic subscriptions endpoint (``/v1/projects/{project_id}/registrations/{token}/topicSubscriptions``) instead of the Instance ID API. The ``TopicManagementResponse`` return type is unchanged, and ``device_tokens`` now accepts any sequence of strings, not only a list.
   * One request is made per device token, with at most 100 in flight per client across concurrent calls (or ``RequestLimits.max_connections`` if lower). If an unexpected, non-HTTP error occurs, the remaining requests are cancelled before the error is raised.
   * The access token is fetched once per call. If fetching it fails, that error is reported for every device token and no subscription requests are sent.
+  * Duplicate device tokens are sent once; the outcome is reported at every index where the token appears.
   * Subscribing a device token that is already subscribed (``409`` resolving to ``ALREADY_EXISTS`` or ``CONFLICT``) counts as a success. A ``409 ABORTED`` is reported as a failure. Unsubscribing a device token that is not subscribed counts as a success.
   * Behavior change: request-level failures such as ``401 UNAUTHENTICATED``, timeouts and connection errors are now reported per device token in ``TopicManagementResponse.errors``, and ``TopicManagementResponse.exception`` is no longer set. Error reasons prefer the FCM error code (e.g. ``UNREGISTERED``) over the generic status.
   * Arguments are now validated and raise ``ValueError``: ``device_tokens`` must be a non-empty sequence of up to 1000 non-empty strings, and ``topic_name`` must match ``[a-zA-Z0-9-_.~%]+``. A leading ``/topics/`` prefix is accepted.
 * Add ``subscribe_devices_to_topic_legacy()`` and ``unsubscribe_devices_from_topic_legacy()``, which keep the previous Instance ID API behavior. Both are deprecated and emit a ``DeprecationWarning``.
 * Add ``TopicManagementResponse.from_error_reasons()`` to build a response from per-token outcomes.
+* [FIX] An error response from the OAuth token endpoint (e.g. a revoked service account key) no longer escapes as ``KeyError: 'expires_in'``. It is now handled like any other HTTP error: ``send()`` and ``send_each()`` return an ``FCMResponse`` with ``exception`` set, and topic management reports it for every device token.
 
 ## 6.2.2
 No runtime or API changes — this release contains internal tooling changes only, and the

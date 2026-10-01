@@ -239,15 +239,20 @@ class AsyncFirebaseClient(AsyncClientBase):
             async with self._topic_management_semaphore:
                 return await manage_subscription(device_token, topic, headers)
 
-        tasks = [asyncio.create_task(manage_with_limit(device_token)) for device_token in device_tokens]
+        tasks = {
+            device_token: asyncio.create_task(manage_with_limit(device_token))
+            for device_token in dict.fromkeys(device_tokens)
+        }
         try:
-            reasons = await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks.values())
         except Exception:
-            for task in tasks:
+            for task in tasks.values():
                 task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*tasks.values(), return_exceptions=True)
             raise
-        return TopicManagementResponse.from_error_reasons(reasons)
+        return TopicManagementResponse.from_error_reasons(
+            tasks[device_token].result() for device_token in device_tokens
+        )
 
     async def subscribe_devices_to_topic(
         self, device_tokens: t.Sequence[str], topic_name: str

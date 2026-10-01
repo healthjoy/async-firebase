@@ -12,6 +12,7 @@ import httpx
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
+from async_firebase._credentials import TOKEN_URL
 from async_firebase.client import (
     AsyncFirebaseClient,
     MULTICAST_MESSAGE_MAX_DEVICE_TOKENS,
@@ -831,6 +832,63 @@ async def test_topic_management_access_token_failure(fake_async_fcm_client_w_cre
 
     assert token_attempts == 1
     assert [error.reason for error in response.errors] == [FcmErrorCode.UNAVAILABLE.value] * 3
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_topic_management_access_token_rejected(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
+    httpx_mock.add_response(
+        method="POST",
+        url=TOKEN_URL,
+        status_code=400,
+        json={"error": "invalid_grant", "error_description": "Invalid JWT Signature."},
+    )
+
+    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=fake_multi_device_tokens
+    )
+
+    assert [error.reason for error in response.errors] == [FcmErrorCode.INVALID_ARGUMENT.value] * 3
+    assert len(httpx_mock.get_requests()) == 1
+
+
+async def test_send_access_token_rejected(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
+    httpx_mock.add_response(
+        method="POST",
+        url=TOKEN_URL,
+        status_code=400,
+        json={"error": "invalid_grant", "error_description": "Invalid JWT Signature."},
+    )
+
+    response = await fake_async_fcm_client_w_creds.send(Message(fid=fake_device_token, data={"text": "hello"}))
+
+    assert not response.success
+    assert response.exception.code == FcmErrorCode.INVALID_ARGUMENT.value
+
+
+async def test_topic_management_sends_one_request_per_unique_device_token(
+    fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock
+):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    httpx_mock.add_response(
+        url=f"{_topic_subscriptions_url(client, 'token-a')}?topic_name=test_topic",
+        status_code=404,
+        json={"error": {"code": 404, "message": "Requested entity was not found.", "status": "NOT_FOUND"}},
+    )
+    httpx_mock.add_response(url=f"{_topic_subscriptions_url(client, 'token-b')}?topic_name=test_topic", json={})
+
+    response = await client.subscribe_devices_to_topic(
+        topic_name="test_topic", device_tokens=["token-a", "token-b", "token-a"]
+    )
+
+    assert len(httpx_mock.get_requests()) == 2
+    assert response.success_count == 1
+    assert response.errors == [
+        TopicManagementErrorInfo(index=0, reason="NOT_FOUND"),
+        TopicManagementErrorInfo(index=2, reason="NOT_FOUND"),
+    ]
 
 
 async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):
