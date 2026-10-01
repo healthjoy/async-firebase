@@ -210,6 +210,7 @@ class AsyncClientBase:
         self,
         method: str,
         url: str,
+        headers: t.Dict[str, str],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Optional[str]:
         """
@@ -217,6 +218,7 @@ class AsyncClientBase:
 
         :param method: HTTP method, ``POST`` to subscribe or ``DELETE`` to unsubscribe.
         :param url: topic subscription URL of the device token.
+        :param headers: request headers shared by all device tokens of the call; a fresh ``X-Request-Id`` is set.
         :param json_payload: request JSON payload.
         :return: ``None`` on success, otherwise the error reason.
         """
@@ -227,7 +229,7 @@ class AsyncClientBase:
                 method,
                 url,
                 json=json_payload,
-                headers=await self.prepare_headers(),
+                headers={**headers, "X-Request-Id": self.get_request_id()},
             )
             raw_fcm_response.raise_for_status()
         except httpx.HTTPError as exc:

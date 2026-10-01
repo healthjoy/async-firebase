@@ -69,7 +69,7 @@ _FCM_ERROR_TYPES: t.Dict[str, t.Type[AsyncFirebaseError]] = {
 
 def _parse_platform_error(response: httpx.Response) -> dict:
     """Extract the code and message from GCP API Error HTTP response."""
-    data: dict = {}
+    data: t.Any = None
     try:
         data = response.json()
     except ValueError:
@@ -79,7 +79,9 @@ def _parse_platform_error(response: httpx.Response) -> dict:
             response.content,
         )
 
-    error_data = data.get("error", {})
+    error_data = data.get("error") if isinstance(data, dict) else None
+    if not isinstance(error_data, dict):
+        error_data = {}
     if not error_data.get("message"):
         error_data["message"] = (
             f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
@@ -88,8 +90,11 @@ def _parse_platform_error(response: httpx.Response) -> dict:
 
 
 def _get_fcm_error_code(error_data: dict) -> t.Optional[str]:
-    for detail in error_data.get("details", []):
-        if detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
+    details = error_data.get("details")
+    if not isinstance(details, list):
+        return None
+    for detail in details:
+        if isinstance(detail, dict) and detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
             return detail.get("errorCode")
     return None
 

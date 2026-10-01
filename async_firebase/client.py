@@ -7,9 +7,13 @@ to authorize request which is being made to Firebase.
 
 import asyncio
 import collections
+import functools
 import re
 import typing as t
 import warnings
+from urllib.parse import quote, urlencode
+
+import httpx
 
 from async_firebase.base import AsyncClientBase, RequestLimits, RequestTimeout  # noqa: F401
 from async_firebase.errors import AsyncFirebaseError, FcmErrorCode
@@ -23,6 +27,7 @@ from async_firebase.messages import (
     TopicManagementResponse,
     WebpushConfig,
 )
+from async_firebase.responses import handle_topic_subscription_error
 from async_firebase.serialization import serialize_message
 from async_firebase.utils import join_url
 
@@ -33,6 +38,8 @@ TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
 TOPIC_PREFIX = "/topics/"
 TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
 _ALREADY_SUBSCRIBED_REASONS = frozenset({FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value})
+
+_ManageSubscription = t.Callable[[str, str, t.Dict[str, str]], t.Awaitable[t.Optional[str]]]
 
 
 def _validate_device_tokens(device_tokens: t.Sequence[str]) -> None:
@@ -187,37 +194,50 @@ class AsyncFirebaseClient(AsyncClientBase):
         )
 
     def _topic_subscriptions_url(self, device_token: str, *parts: str, params: t.Dict[str, str]) -> str:
-        registrations_uri = self.FCM_REGISTRATIONS_ENDPOINT.format(project_id=self._credentials.project_id)
-        return join_url(self.BASE_URL, registrations_uri, device_token, "topicSubscriptions", *parts, params=params)
+        registrations_url = join_url(
+            self.BASE_URL, self.FCM_REGISTRATIONS_ENDPOINT.format(project_id=self._credentials.project_id)
+        )
+        # Not join_url: it leaves "/" unescaped, which would let a device token change the request path.
+        path = "/".join(quote(segment, safe="") for segment in (device_token, "topicSubscriptions", *parts))
+        return f"{registrations_url}/{path}?{urlencode(params)}"
 
-    def _topic_management_concurrency(self) -> int:
+    @functools.cached_property
+    def _topic_management_semaphore(self) -> asyncio.Semaphore:
         max_connections = self._request_limits.max_connections
         if not max_connections:
-            return TOPIC_MANAGEMENT_MAX_CONCURRENCY
-        return min(TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections)
+            return asyncio.Semaphore(TOPIC_MANAGEMENT_MAX_CONCURRENCY)
+        return asyncio.Semaphore(min(TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections))
 
-    async def _subscribe_device_to_topic(self, device_token: str, topic: str) -> t.Optional[str]:
+    async def _subscribe_device_to_topic(
+        self, device_token: str, topic: str, headers: t.Dict[str, str]
+    ) -> t.Optional[str]:
         url = self._topic_subscriptions_url(device_token, params={"topic_name": topic})
-        reason = await self._send_topic_subscription_request("POST", url, json_payload={})
+        reason = await self._send_topic_subscription_request("POST", url, headers, json_payload={})
         return None if reason in _ALREADY_SUBSCRIBED_REASONS else reason
 
-    async def _unsubscribe_device_from_topic(self, device_token: str, topic: str) -> t.Optional[str]:
+    async def _unsubscribe_device_from_topic(
+        self, device_token: str, topic: str, headers: t.Dict[str, str]
+    ) -> t.Optional[str]:
         url = self._topic_subscriptions_url(device_token, topic, params={"allow_missing": "true"})
-        return await self._send_topic_subscription_request("DELETE", url)
+        return await self._send_topic_subscription_request("DELETE", url, headers)
 
     async def _manage_topic_subscriptions(
         self,
-        manage_subscription: t.Callable[[str, str], t.Awaitable[t.Optional[str]]],
+        manage_subscription: _ManageSubscription,
         device_tokens: t.Sequence[str],
         topic_name: str,
     ) -> TopicManagementResponse:
         _validate_device_tokens(device_tokens)
         topic = _normalize_topic_name(topic_name)
-        semaphore = asyncio.Semaphore(self._topic_management_concurrency())
+        try:
+            headers = await self.prepare_headers()
+        except httpx.HTTPError as exc:
+            reason = handle_topic_subscription_error(exc)
+            return TopicManagementResponse.from_error_reasons([reason] * len(device_tokens))
 
         async def manage_with_limit(device_token: str) -> t.Optional[str]:
-            async with semaphore:
-                return await manage_subscription(device_token, topic)
+            async with self._topic_management_semaphore:
+                return await manage_subscription(device_token, topic, headers)
 
         tasks = [asyncio.create_task(manage_with_limit(device_token)) for device_token in device_tokens]
         try:

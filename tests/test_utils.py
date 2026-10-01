@@ -576,6 +576,20 @@ class TestTopicSubscriptionErrorHandler:
         assert handle_topic_subscription_error(error) == exp_reason
 
     @pytest.mark.parametrize(
+        "content",
+        (
+            b"[1, 2]",
+            b"null",
+            b'{"error": "Bad request"}',
+            b'{"error": {"status": "INVALID_ARGUMENT", "details": "not a list"}}',
+            b'{"error": {"status": "INVALID_ARGUMENT", "details": ["not a dict"]}}',
+        ),
+    )
+    def test_unexpected_json_shape(self, content):
+        error = _make_http_status_error(400, content=content)
+        assert handle_topic_subscription_error(error) == "INVALID_ARGUMENT"
+
+    @pytest.mark.parametrize(
         "error, exp_reason",
         (
             (httpx.ReadTimeout("Connection read timed out"), "DEADLINE_EXCEEDED"),

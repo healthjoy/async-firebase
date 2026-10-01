@@ -3,6 +3,7 @@ import json
 import uuid
 from datetime import datetime
 from unittest import mock
+from urllib.parse import quote
 
 from importlib.metadata import version
 
@@ -683,7 +684,7 @@ def test_build_webpush_config(fake_async_fcm_client_w_creds):
 def _topic_subscriptions_url(client, device_token):
     return (
         f"https://fcm.googleapis.com/v1/projects/{client._credentials.project_id}"
-        f"/registrations/{device_token}/topicSubscriptions"
+        f"/registrations/{quote(device_token, safe='')}/topicSubscriptions"
     )
 
 
@@ -785,27 +786,74 @@ async def test_subscribe_to_topic_accepts_tuple_of_device_tokens(
     assert response.success_count == 1
 
 
-async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):
+async def test_topic_management_escapes_device_token_in_url(fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(json={})
+
+    await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+        topic_name="test_topic", device_tokens=["/abc:def/ghi"]
+    )
+
+    assert httpx_mock.get_request().url.raw_path.decode().endswith(
+        "/registrations/%2Fabc%3Adef%2Fghi/topicSubscriptions/test_topic?allow_missing=true"
+    )
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_topic_management_prepares_headers_once_per_call(
+    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
+):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    httpx_mock.add_response(json={}, is_reusable=True)
+
+    with mock.patch.object(client, "prepare_headers", wraps=client.prepare_headers) as prepare_headers:
+        await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+
+    assert prepare_headers.await_count == 1
+    request_ids = {request.headers["X-Request-Id"] for request in httpx_mock.get_requests()}
+    assert len(request_ids) == 3
+
+
+@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
+async def test_topic_management_access_token_failure(fake_async_fcm_client_w_creds, fake_multi_device_tokens):
     client = fake_async_fcm_client_w_creds
     token_attempts = 0
 
-    async def failing_access_token():
+    async def unreachable_token_endpoint():
         nonlocal token_attempts
         token_attempts += 1
-        await asyncio.sleep(0)
-        raise KeyError("expires_in")
+        raise httpx.ConnectError("Failed to connect")
 
-    client._get_access_token = failing_access_token
+    client._get_access_token = unreachable_token_endpoint
 
-    with pytest.raises(KeyError):
+    response = await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+
+    assert token_attempts == 1
+    assert [error.reason for error in response.errors] == [FcmErrorCode.UNAVAILABLE.value] * 3
+
+
+async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+    request_attempts = 0
+
+    def failing_request_id():
+        nonlocal request_attempts
+        request_attempts += 1
+        raise RuntimeError("unexpected")
+
+    client.get_request_id = failing_request_id
+
+    with pytest.raises(RuntimeError):
         await client.subscribe_devices_to_topic(
             topic_name="test_topic", device_tokens=[f"token-{index}" for index in range(300)]
         )
-    token_attempts_when_raised = token_attempts
+    request_attempts_when_raised = request_attempts
     await client.close()
     await asyncio.sleep(0.01)
 
-    assert token_attempts == token_attempts_when_raised
+    assert request_attempts == request_attempts_when_raised
     assert client._http_client is None
 
 
@@ -905,15 +953,16 @@ async def test_topic_management_invalid_arguments(
 
 
 @pytest.mark.parametrize(
-    "max_connections, device_tokens_count, exp_max_in_flight",
+    "max_connections, calls, device_tokens_count, exp_max_in_flight",
     (
-        (2, 5, 2),
-        (None, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
-        (500, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+        (2, 1, 5, 2),
+        (2, 2, 5, 2),
+        (None, 1, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+        (500, 1, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
     ),
 )
 async def test_topic_management_bounds_concurrency(
-    fake_service_account, max_connections, device_tokens_count, exp_max_in_flight, httpx_mock: HTTPXMock
+    fake_service_account, max_connections, calls, device_tokens_count, exp_max_in_flight, httpx_mock: HTTPXMock
 ):
     client = AsyncFirebaseClient(request_limits=RequestLimits(max_connections=max_connections))
     client.creds_from_service_account_info(fake_service_account)
@@ -931,11 +980,12 @@ async def test_topic_management_bounds_concurrency(
 
     httpx_mock.add_callback(track_concurrency, is_reusable=True)
 
-    response = await client.subscribe_devices_to_topic(
-        topic_name="test_topic", device_tokens=[f"token-{index}" for index in range(device_tokens_count)]
+    device_tokens = [f"token-{index}" for index in range(device_tokens_count)]
+    responses = await asyncio.gather(
+        *(client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=device_tokens) for _ in range(calls))
     )
 
-    assert response.success_count == device_tokens_count
+    assert [response.success_count for response in responses] == [device_tokens_count] * calls
     assert max_in_flight == exp_max_in_flight
 
 
