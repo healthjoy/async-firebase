@@ -2,7 +2,7 @@
 
 All HTTP-to-domain-error resolution and response parsing lives here.
 The three lookup dictionaries, resolution chain, and JSON parsing are
-internal implementation details. Callers use the typed public functions below.
+internal implementation details. Callers use the four typed public functions.
 """
 
 import logging
@@ -69,7 +69,7 @@ _FCM_ERROR_TYPES: t.Dict[str, t.Type[AsyncFirebaseError]] = {
 
 def _parse_platform_error(response: httpx.Response) -> dict:
     """Extract the code and message from GCP API Error HTTP response."""
-    data: t.Any = None
+    data: dict = {}
     try:
         data = response.json()
     except ValueError:
@@ -79,9 +79,7 @@ def _parse_platform_error(response: httpx.Response) -> dict:
             response.content,
         )
 
-    error_data = data.get("error") if isinstance(data, dict) else None
-    if not isinstance(error_data, dict):
-        error_data = {}
+    error_data = data.get("error", {})
     if not error_data.get("message"):
         error_data["message"] = (
             f"Unexpected HTTP response with status: {response.status_code}; body: {response.content!r}"
@@ -89,31 +87,16 @@ def _parse_platform_error(response: httpx.Response) -> dict:
     return error_data
 
 
-def _get_error_name(response: httpx.Response) -> t.Optional[str]:
-    """Return the error of bodies like ``{"error": "invalid_grant"}``, as sent by OAuth and the legacy APIs."""
-    try:
-        data = response.json()
-    except ValueError:
-        return None
-    error = data.get("error") if isinstance(data, dict) else None
-    return error if isinstance(error, str) and error else None
-
-
-def _get_fcm_error_code(error_data: dict) -> t.Optional[str]:
-    details = error_data.get("details")
-    if not isinstance(details, list):
-        return None
-    for detail in details:
-        if isinstance(detail, dict) and detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
-            return detail.get("errorCode")
-    return None
-
-
 def _get_fcm_error_type(error_data: dict) -> t.Optional[t.Type[AsyncFirebaseError]]:
     if not error_data:
         return None
 
-    fcm_code = _get_fcm_error_code(error_data)
+    fcm_code = None
+    for detail in error_data.get("details", []):
+        if detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
+            fcm_code = detail.get("errorCode")
+            break
+
     if not fcm_code:
         return None
 
@@ -164,7 +147,7 @@ def _resolve_exception(error: httpx.HTTPError) -> AsyncFirebaseError:
     )
 
 
-# ── Public API: typed functions ────────────────────────────────────
+# ── Public API: 4 typed functions ──────────────────────────────────
 
 
 def handle_fcm_response(response: httpx.Response) -> FCMResponse:
@@ -188,17 +171,41 @@ def handle_topic_error(error: httpx.HTTPError) -> TopicManagementResponse:
 
 
 def handle_topic_subscription_error(error: httpx.HTTPError) -> str:
-    """Turn an httpx error from an FCM v1 topic subscription request into a per-token error reason."""
+    """Turn an httpx error from an FCM v1 topic subscription request into a per-token error reason.
+
+    Malformed error bodies never raise; they fall back to a reason derived from the HTTP status.
+    """
     if not isinstance(error, httpx.HTTPStatusError):
         return _handle_request_error(error).code
 
-    error_data = _parse_platform_error(error.response)
+    error_field = _get_error_field(error.response)
+    if isinstance(error_field, str) and error_field:
+        return error_field
+    error_data = error_field if isinstance(error_field, dict) else {}
     return (
-        _get_fcm_error_code(error_data)
+        _find_fcm_error_code(error_data)
         or error_data.get("status")
-        or _get_error_name(error.response)
         or _HTTP_STATUS_TO_ERROR_CODE.get(error.response.status_code, FcmErrorCode.UNKNOWN.value)
     )
+
+
+def _get_error_field(response: httpx.Response) -> t.Any:
+    """Return the ``error`` field of a JSON error body, or ``None`` when the body is not a JSON object."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body.get("error") if isinstance(body, dict) else None
+
+
+def _find_fcm_error_code(error_data: dict) -> t.Optional[str]:
+    details = error_data.get("details")
+    if not isinstance(details, list):
+        return None
+    for detail in details:
+        if isinstance(detail, dict) and detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
+            return detail.get("errorCode")
+    return None
 
 
 # ── Backward-compatible handler classes ────────────────────────────

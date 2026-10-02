@@ -80,7 +80,6 @@ class CredentialManager:
             ).encode("utf-8")
 
             response: httpx.Response = await http_client.post(TOKEN_URL, content=data, headers=headers)
-            response.raise_for_status()
             response_data = response.json()
 
             self._credentials.expiry = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(

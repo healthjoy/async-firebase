@@ -12,7 +12,6 @@ import httpx
 from google.oauth2 import service_account
 from pytest_httpx import HTTPXMock
 
-from async_firebase._credentials import TOKEN_URL
 from async_firebase.client import (
     AsyncFirebaseClient,
     MULTICAST_MESSAGE_MAX_DEVICE_TOKENS,
@@ -703,7 +702,7 @@ async def test_subscribe_to_topic(
             json={},
         )
 
-    response = await client.subscribe_devices_to_topic(topic_name=topic_name, device_tokens=fake_multi_device_tokens)
+    response = await client.subscribe_to_topic(topic_name=topic_name, device_tokens=fake_multi_device_tokens)
 
     assert isinstance(response, TopicManagementResponse)
     assert response.success_count == 3
@@ -730,7 +729,7 @@ async def test_unsubscribe_from_topic(
             json={},
         )
 
-    response = await client.unsubscribe_devices_from_topic(
+    response = await client.unsubscribe_from_topic(
         topic_name=topic_name, device_tokens=fake_multi_device_tokens
     )
 
@@ -747,17 +746,17 @@ async def test_unsubscribe_from_topic(
     "method_name, body, exp_errors",
     (
         (
-            "subscribe_devices_to_topic",
+            "subscribe_to_topic",
             {"error": {"code": 409, "message": "Already exists", "status": "ALREADY_EXISTS"}},
             [],
         ),
-        ("subscribe_devices_to_topic", None, []),
+        ("subscribe_to_topic", None, []),
         (
-            "subscribe_devices_to_topic",
+            "subscribe_to_topic",
             {"error": {"code": 409, "message": "Concurrent modification", "status": "ABORTED"}},
             [TopicManagementErrorInfo(index=0, reason="ABORTED")],
         ),
-        ("unsubscribe_devices_from_topic", None, [TopicManagementErrorInfo(index=0, reason="CONFLICT")]),
+        ("unsubscribe_from_topic", None, [TopicManagementErrorInfo(index=0, reason="CONFLICT")]),
     ),
 )
 async def test_topic_management_conflict(
@@ -780,7 +779,7 @@ async def test_subscribe_to_topic_accepts_tuple_of_device_tokens(
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(json={})
 
-    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+    response = await fake_async_fcm_client_w_creds.subscribe_to_topic(
         topic_name="test_topic", device_tokens=(fake_device_token,)
     )
 
@@ -791,7 +790,7 @@ async def test_topic_management_escapes_device_token_in_url(fake_async_fcm_clien
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(json={})
 
-    await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+    await fake_async_fcm_client_w_creds.unsubscribe_from_topic(
         topic_name="test_topic", device_tokens=["/abc:def/ghi"]
     )
 
@@ -809,7 +808,7 @@ async def test_topic_management_prepares_headers_once_per_call(
     httpx_mock.add_response(json={}, is_reusable=True)
 
     with mock.patch.object(client, "prepare_headers", wraps=client.prepare_headers) as prepare_headers:
-        await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+        await client.subscribe_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
 
     assert prepare_headers.await_count == 1
     request_ids = {request.headers["X-Request-Id"] for request in httpx_mock.get_requests()}
@@ -828,43 +827,10 @@ async def test_topic_management_access_token_failure(fake_async_fcm_client_w_cre
 
     client._get_access_token = unreachable_token_endpoint
 
-    response = await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+    response = await client.subscribe_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
 
     assert token_attempts == 1
     assert [error.reason for error in response.errors] == [FcmErrorCode.UNAVAILABLE.value] * 3
-
-
-@pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_topic_management_access_token_rejected(
-    fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
-):
-    httpx_mock.add_response(
-        method="POST",
-        url=TOKEN_URL,
-        status_code=400,
-        json={"error": "invalid_grant", "error_description": "Invalid JWT Signature."},
-    )
-
-    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
-        topic_name="test_topic", device_tokens=fake_multi_device_tokens
-    )
-
-    assert [error.reason for error in response.errors] == ["invalid_grant"] * 3
-    assert len(httpx_mock.get_requests()) == 1
-
-
-async def test_send_access_token_rejected(fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock):
-    httpx_mock.add_response(
-        method="POST",
-        url=TOKEN_URL,
-        status_code=400,
-        json={"error": "invalid_grant", "error_description": "Invalid JWT Signature."},
-    )
-
-    response = await fake_async_fcm_client_w_creds.send(Message(fid=fake_device_token, data={"text": "hello"}))
-
-    assert not response.success
-    assert response.exception.code == FcmErrorCode.INVALID_ARGUMENT.value
 
 
 async def test_topic_management_sends_one_request_per_unique_device_token(
@@ -879,7 +845,7 @@ async def test_topic_management_sends_one_request_per_unique_device_token(
     )
     httpx_mock.add_response(url=f"{_topic_subscriptions_url(client, 'token-b')}?topic_name=test_topic", json={})
 
-    response = await client.subscribe_devices_to_topic(
+    response = await client.subscribe_to_topic(
         topic_name="test_topic", device_tokens=["token-a", "token-b", "token-a"]
     )
 
@@ -904,7 +870,7 @@ async def test_topic_management_stops_all_requests_on_unexpected_error(fake_asyn
     client.get_request_id = failing_request_id
 
     with pytest.raises(RuntimeError):
-        await client.subscribe_devices_to_topic(
+        await client.subscribe_to_topic(
             topic_name="test_topic", device_tokens=[f"token-{index}" for index in range(300)]
         )
     request_attempts_when_raised = request_attempts
@@ -941,7 +907,7 @@ async def test_subscribe_to_topic_with_incorrect(
         },
     )
 
-    response = await client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
+    response = await client.subscribe_to_topic(topic_name="test_topic", device_tokens=fake_multi_device_tokens)
 
     assert response.success_count == 2
     assert response.failure_count == 1
@@ -965,7 +931,7 @@ async def test_unsubscribe_from_topic_unauthenticated(
         is_reusable=True,
     )
 
-    response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
+    response = await fake_async_fcm_client_w_creds.unsubscribe_from_topic(
         topic_name="test_topic", device_tokens=fake_multi_device_tokens
     )
 
@@ -979,7 +945,7 @@ async def test_subscribe_to_topic_timeout(fake_async_fcm_client_w_creds, fake_de
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_exception(httpx.ReadTimeout("Connection read timed out"))
 
-    response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
+    response = await fake_async_fcm_client_w_creds.subscribe_to_topic(
         topic_name="test_topic", device_tokens=[fake_device_token]
     )
 
@@ -987,7 +953,7 @@ async def test_subscribe_to_topic_timeout(fake_async_fcm_client_w_creds, fake_de
     assert response.errors == [TopicManagementErrorInfo(index=0, reason=FcmErrorCode.DEADLINE_EXCEEDED.value)]
 
 
-@pytest.mark.parametrize("method_name", ("subscribe_devices_to_topic", "unsubscribe_devices_from_topic"))
+@pytest.mark.parametrize("method_name", ("subscribe_to_topic", "unsubscribe_from_topic"))
 @pytest.mark.parametrize(
     "device_tokens, topic_name, exp_message",
     (
@@ -1040,7 +1006,7 @@ async def test_topic_management_bounds_concurrency(
 
     device_tokens = [f"token-{index}" for index in range(device_tokens_count)]
     responses = await asyncio.gather(
-        *(client.subscribe_devices_to_topic(topic_name="test_topic", device_tokens=device_tokens) for _ in range(calls))
+        *(client.subscribe_to_topic(topic_name="test_topic", device_tokens=device_tokens) for _ in range(calls))
     )
 
     assert [response.success_count for response in responses] == [device_tokens_count] * calls
@@ -1048,7 +1014,7 @@ async def test_topic_management_bounds_concurrency(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_subscribe_to_topic_legacy(
+async def test_subscribe_devices_to_topic(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -1058,8 +1024,8 @@ async def test_subscribe_to_topic_legacy(
         status_code=200,
         json={"results": [{}, {}, {}]},
     )
-    with pytest.warns(DeprecationWarning, match="subscribe_devices_to_topic_legacy is deprecated"):
-        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic_legacy(
+    with pytest.warns(DeprecationWarning, match="subscribe_devices_to_topic is deprecated"):
+        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
             topic_name="test_topic", device_tokens=fake_multi_device_tokens
         )
     assert isinstance(response, TopicManagementResponse)
@@ -1075,7 +1041,7 @@ async def test_subscribe_to_topic_legacy(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_subscribe_to_topic_legacy_with_incorrect(
+async def test_subscribe_devices_to_topic_with_incorrect(
         fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -1086,7 +1052,7 @@ async def test_subscribe_to_topic_legacy_with_incorrect(
         json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
     )
     with pytest.warns(DeprecationWarning):
-        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic_legacy(
+        response = await fake_async_fcm_client_w_creds.subscribe_devices_to_topic(
             topic_name='test_topic', device_tokens=device_tokens
         )
     assert isinstance(response, TopicManagementResponse)
@@ -1100,7 +1066,7 @@ async def test_subscribe_to_topic_legacy_with_incorrect(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_unsubscribe_from_topic_legacy(
+async def test_unsubscribe_devices_from_topic(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -1110,8 +1076,8 @@ async def test_unsubscribe_from_topic_legacy(
         status_code=200,
         json={"results": [{}, {}, {}]},
     )
-    with pytest.warns(DeprecationWarning, match="unsubscribe_devices_from_topic_legacy is deprecated"):
-        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+    with pytest.warns(DeprecationWarning, match="unsubscribe_devices_from_topic is deprecated"):
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
             topic_name="test_topic", device_tokens=fake_multi_device_tokens
         )
     assert isinstance(response, TopicManagementResponse)
@@ -1121,7 +1087,7 @@ async def test_unsubscribe_from_topic_legacy(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_unsubscribe_from_topic_legacy_with_incorrect(
+async def test_unsubscribe_devices_from_topic_with_incorrect(
         fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -1132,7 +1098,7 @@ async def test_unsubscribe_from_topic_legacy_with_incorrect(
         json={"results": [{}, {}, {}, {"error": "INVALID_ARGUMENT"}]},
     )
     with pytest.warns(DeprecationWarning):
-        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
             topic_name='test_topic', device_tokens=device_tokens
         )
     assert isinstance(response, TopicManagementResponse)
@@ -1146,7 +1112,7 @@ async def test_unsubscribe_from_topic_legacy_with_incorrect(
 
 
 @pytest.mark.parametrize("fake_multi_device_tokens", (3,), indirect=True)
-async def test_send_topic_management_legacy_unauthenticated(
+async def test_send_topic_management_unauthenticated(
     fake_async_fcm_client_w_creds, fake_multi_device_tokens, httpx_mock: HTTPXMock
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
@@ -1164,7 +1130,7 @@ async def test_send_topic_management_legacy_unauthenticated(
         },
     )
     with pytest.warns(DeprecationWarning):
-        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic_legacy(
+        response = await fake_async_fcm_client_w_creds.unsubscribe_devices_from_topic(
             topic_name="test_topic", device_tokens=fake_multi_device_tokens
         )
 

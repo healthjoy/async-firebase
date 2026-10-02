@@ -934,7 +934,12 @@ class TopicManagementResponse:
         :param reasons: one entry per device token, in request order: ``None`` on success, the error reason otherwise.
         """
         response = cls()
-        response._add_error_reasons(reasons)
+        for index, reason in enumerate(reasons):
+            if reason is None:
+                response.success_count += 1
+            else:
+                response.failure_count += 1
+                response.errors.append(TopicManagementErrorInfo(index, reason))
         return response
 
     def _handle_response(self, resp: httpx.Response):
@@ -942,12 +947,10 @@ class TopicManagementResponse:
         results = response.get("results")
         if not results:
             raise ValueError(f"Unexpected topic management response: {resp}.")
-        self._add_error_reasons(result.get("error") for result in results)
 
-    def _add_error_reasons(self, reasons: t.Iterable[t.Optional[str]]) -> None:
-        for index, reason in enumerate(reasons):
-            if reason is None:
-                self.success_count += 1
-            else:
+        for index, result in enumerate(results):
+            if "error" in result:
                 self.failure_count += 1
-                self.errors.append(TopicManagementErrorInfo(index, reason))
+                self.errors.append(TopicManagementErrorInfo(index, result["error"]))
+            else:
+                self.success_count += 1

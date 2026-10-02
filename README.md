@@ -210,13 +210,13 @@ async with AsyncFirebaseClient() as client:
     client.creds_from_service_account_info({...})
 
     # Subscribe
-    response = await client.subscribe_devices_to_topic(
+    response = await client.subscribe_to_topic(
         device_tokens=["token_1", "token_2"],
         topic_name="breaking-news",
     )
 
     # Unsubscribe
-    response = await client.unsubscribe_devices_from_topic(
+    response = await client.unsubscribe_from_topic(
         device_tokens=["token_1", "token_2"],
         topic_name="breaking-news",
     )
@@ -225,9 +225,9 @@ async with AsyncFirebaseClient() as client:
         print(f"Token at index {error.index} failed: {error.reason}")
 ```
 
-Topic subscriptions are managed through the FCM v1 API, which makes one request per device token (up to 1000 tokens per call). Failures, including authentication errors, are reported per token in ``response.errors``. ``topic_name`` may include the ``/topics/`` prefix.
+``subscribe_to_topic()`` and ``unsubscribe_from_topic()`` use the FCM v1 API, which makes one request per device token (up to 1000 tokens per call). HTTP failures, including authentication errors, are reported per token in ``response.errors``. ``topic_name`` may include the ``/topics/`` prefix.
 
-``subscribe_devices_to_topic_legacy()`` and ``unsubscribe_devices_from_topic_legacy()`` keep the previous Instance ID API behavior and are deprecated.
+``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` use the legacy Instance ID API. They behave as before but are deprecated.
 
 ## Advanced Usage
 

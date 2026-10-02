@@ -68,25 +68,6 @@ async def test_get_access_token_refreshes_when_expired(fake_service_account):
     mock_client.post.assert_awaited_once()
 
 
-async def test_get_access_token_raises_on_error_response(fake_service_account):
-    """An OAuth error response should raise httpx.HTTPStatusError and keep the credentials unchanged."""
-    manager = CredentialManager()
-    manager.from_service_account_info(fake_service_account)
-
-    error_response = httpx.Response(
-        400,
-        json={"error": "invalid_grant", "error_description": "Invalid JWT Signature."},
-        request=httpx.Request("POST", "https://oauth2.googleapis.com/token"),
-    )
-    mock_client = mock.AsyncMock(spec=httpx.AsyncClient)
-    mock_client.post.return_value = error_response
-
-    with pytest.raises(httpx.HTTPStatusError):
-        await manager.get_access_token(mock_client)
-
-    assert manager._credentials.token is None
-
-
 async def test_get_access_token_double_check_lock(fake_service_account):
     """When two coroutines race, the second should find the token already refreshed."""
     manager = CredentialManager()
