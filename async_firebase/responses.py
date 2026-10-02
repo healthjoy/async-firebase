@@ -89,6 +89,16 @@ def _parse_platform_error(response: httpx.Response) -> dict:
     return error_data
 
 
+def _get_error_name(response: httpx.Response) -> t.Optional[str]:
+    """Return the error of bodies like ``{"error": "invalid_grant"}``, as sent by OAuth and the legacy APIs."""
+    try:
+        data = response.json()
+    except ValueError:
+        return None
+    error = data.get("error") if isinstance(data, dict) else None
+    return error if isinstance(error, str) and error else None
+
+
 def _get_fcm_error_code(error_data: dict) -> t.Optional[str]:
     details = error_data.get("details")
     if not isinstance(details, list):
@@ -186,6 +196,7 @@ def handle_topic_subscription_error(error: httpx.HTTPError) -> str:
     return (
         _get_fcm_error_code(error_data)
         or error_data.get("status")
+        or _get_error_name(error.response)
         or _HTTP_STATUS_TO_ERROR_CODE.get(error.response.status_code, FcmErrorCode.UNKNOWN.value)
     )
 

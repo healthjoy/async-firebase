@@ -580,7 +580,7 @@ class TestTopicSubscriptionErrorHandler:
         (
             b"[1, 2]",
             b"null",
-            b'{"error": "Bad request"}',
+            b'{"error": ""}',
             b'{"error": {"status": "INVALID_ARGUMENT", "details": "not a list"}}',
             b'{"error": {"status": "INVALID_ARGUMENT", "details": ["not a dict"]}}',
         ),
@@ -588,6 +588,17 @@ class TestTopicSubscriptionErrorHandler:
     def test_unexpected_json_shape(self, content):
         error = _make_http_status_error(400, content=content)
         assert handle_topic_subscription_error(error) == "INVALID_ARGUMENT"
+
+    @pytest.mark.parametrize(
+        "content, exp_reason",
+        (
+            (b'{"error": "INVALID_REGISTRATION"}', "INVALID_REGISTRATION"),
+            (b'{"error": "invalid_grant", "error_description": "Invalid JWT Signature."}', "invalid_grant"),
+        ),
+    )
+    def test_string_error_is_used_as_reason(self, content, exp_reason):
+        error = _make_http_status_error(400, content=content)
+        assert handle_topic_subscription_error(error) == exp_reason
 
     @pytest.mark.parametrize(
         "error, exp_reason",

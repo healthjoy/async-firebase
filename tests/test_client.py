@@ -849,7 +849,7 @@ async def test_topic_management_access_token_rejected(
         topic_name="test_topic", device_tokens=fake_multi_device_tokens
     )
 
-    assert [error.reason for error in response.errors] == [FcmErrorCode.INVALID_ARGUMENT.value] * 3
+    assert [error.reason for error in response.errors] == ["invalid_grant"] * 3
     assert len(httpx_mock.get_requests()) == 1
 
 
