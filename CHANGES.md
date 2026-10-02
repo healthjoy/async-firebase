@@ -9,6 +9,7 @@ Backward-compatible release: existing methods behave exactly as in 6.2.2.
   * The access token is fetched once per call. If fetching it fails with an HTTP error, that reason is reported for every device token and no subscription requests are sent. If an unexpected, non-HTTP error occurs, the remaining requests are cancelled before the error is raised.
   * Subscribing a device token that is already subscribed (``409`` resolving to ``ALREADY_EXISTS`` or ``CONFLICT``) counts as a success; a ``409 ABORTED`` is reported as a failure. Unsubscribing a device token that is not subscribed counts as a success.
   * Arguments are validated and raise ``ValueError``: ``device_tokens`` must be a non-empty sequence of up to 1000 non-empty strings, and ``topic_name`` must match ``[a-zA-Z0-9-_.~%]+``, optionally prefixed with ``/topics/``.
+* Add ``async_firebase.client.TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS`` (``1000``), the device token limit of ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``, and ``AsyncClientBase.FCM_REGISTRATIONS_ENDPOINT``, the FCM v1 registrations endpoint they use.
 * Deprecate ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` in favor of ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``. They still use the Instance ID API, behave as before, and now emit a ``DeprecationWarning``.
 
 ## 6.2.2

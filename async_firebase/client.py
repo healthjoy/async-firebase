@@ -35,7 +35,7 @@ from async_firebase.utils import join_url
 
 BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
 TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS = 1000
-TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
+_TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
 _TOPIC_PREFIX = "/topics/"
 _TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
 _ALREADY_SUBSCRIBED_REASONS = frozenset({FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value})
@@ -206,8 +206,8 @@ class AsyncFirebaseClient(AsyncClientBase):
     def _topic_management_semaphore(self) -> asyncio.Semaphore:
         max_connections = self._request_limits.max_connections
         if not max_connections:
-            return asyncio.Semaphore(TOPIC_MANAGEMENT_MAX_CONCURRENCY)
-        return asyncio.Semaphore(min(TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections))
+            return asyncio.Semaphore(_TOPIC_MANAGEMENT_MAX_CONCURRENCY)
+        return asyncio.Semaphore(min(_TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections))
 
     async def _subscribe_device_to_topic(
         self, device_token: str, topic: str, headers: t.Dict[str, str]

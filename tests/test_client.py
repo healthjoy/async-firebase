@@ -16,7 +16,7 @@ from async_firebase.client import (
     AsyncFirebaseClient,
     MULTICAST_MESSAGE_MAX_DEVICE_TOKENS,
     BATCH_MAX_MESSAGES,
-    TOPIC_MANAGEMENT_MAX_CONCURRENCY,
+    _TOPIC_MANAGEMENT_MAX_CONCURRENCY,
     TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS,
     RequestLimits,
 )
@@ -981,8 +981,8 @@ async def test_topic_management_invalid_arguments(
     (
         (2, 1, 5, 2),
         (2, 2, 5, 2),
-        (None, 1, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
-        (500, 1, TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+        (None, 1, _TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, _TOPIC_MANAGEMENT_MAX_CONCURRENCY),
+        (500, 1, _TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, _TOPIC_MANAGEMENT_MAX_CONCURRENCY),
     ),
 )
 async def test_topic_management_bounds_concurrency(
@@ -1139,6 +1139,29 @@ async def test_send_topic_management_unauthenticated(
     assert response.exception is not None
     assert response.exception.code == FcmErrorCode.UNAUTHENTICATED.value
     assert response.exception.cause.response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "method_name, iid_action",
+    (
+        ("subscribe_devices_to_topic", "iid/v1:batchAdd"),
+        ("unsubscribe_devices_from_topic", "iid/v1:batchRemove"),
+    ),
+)
+@pytest.mark.parametrize("device_tokens", ([], ["token"] * (TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS + 1)))
+async def test_deprecated_topic_management_skips_v1_validation(
+    fake_async_fcm_client_w_creds, method_name, iid_action, device_tokens, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(method="POST", url=f"https://iid.googleapis.com/{iid_action}", json={"results": [{}]})
+
+    with pytest.warns(DeprecationWarning):
+        await getattr(fake_async_fcm_client_w_creds, method_name)(device_tokens=device_tokens, topic_name="test_topic")
+
+    assert json.loads(httpx_mock.get_request().read()) == {
+        "to": "/topics/test_topic",
+        "registration_tokens": device_tokens,
+    }
 
 
 # ── Context manager & resource cleanup ──────────────────────────────
