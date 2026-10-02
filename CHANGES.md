@@ -10,7 +10,6 @@ Backward-compatible release: existing methods behave exactly as in 6.2.2.
   * Subscribing a device token that is already subscribed (``409`` resolving to ``ALREADY_EXISTS`` or ``CONFLICT``) counts as a success; a ``409 ABORTED`` is reported as a failure. Unsubscribing a device token that is not subscribed counts as a success.
   * Arguments are validated and raise ``ValueError``: ``device_tokens`` must be a non-empty sequence of up to 1000 non-empty strings, and ``topic_name`` must match ``[a-zA-Z0-9-_.~%]+``, optionally prefixed with ``/topics/``.
 * Deprecate ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` in favor of ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``. They still use the Instance ID API, behave as before, and now emit a ``DeprecationWarning``.
-* Add ``TopicManagementResponse.from_error_reasons()`` to build a response from per-token outcomes.
 
 ## 6.2.2
 No runtime or API changes — this release contains internal tooling changes only, and the

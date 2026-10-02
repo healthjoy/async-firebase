@@ -225,7 +225,7 @@ async with AsyncFirebaseClient() as client:
         print(f"Token at index {error.index} failed: {error.reason}")
 ```
 
-``subscribe_to_topic()`` and ``unsubscribe_from_topic()`` use the FCM v1 API, which makes one request per device token (up to 1000 tokens per call). HTTP failures, including authentication errors, are reported per token in ``response.errors``. ``topic_name`` may include the ``/topics/`` prefix.
+``subscribe_to_topic()`` and ``unsubscribe_from_topic()`` use the FCM v1 API, which makes one request per device token (up to 1000 tokens per call). HTTP failures such as ``401`` responses, timeouts and connection errors are reported per token in ``response.errors``. ``topic_name`` may include the ``/topics/`` prefix.
 
 ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` use the legacy Instance ID API. They behave as before but are deprecated.
 

@@ -927,7 +927,7 @@ class TopicManagementResponse:
             self._handle_response(self.resp)
 
     @classmethod
-    def from_error_reasons(cls, reasons: t.Iterable[t.Optional[str]]) -> "TopicManagementResponse":
+    def _from_error_reasons(cls, reasons: t.Iterable[t.Optional[str]]) -> "TopicManagementResponse":
         """
         Build a response from per-token outcomes.
 

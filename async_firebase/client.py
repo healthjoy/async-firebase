@@ -36,8 +36,8 @@ from async_firebase.utils import join_url
 BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
 TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS = 1000
 TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
-TOPIC_PREFIX = "/topics/"
-TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
+_TOPIC_PREFIX = "/topics/"
+_TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
 _ALREADY_SUBSCRIBED_REASONS = frozenset({FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value})
 
 _ManageSubscription = t.Callable[[str, str, t.Dict[str, str]], t.Awaitable[t.Optional[str]]]
@@ -61,8 +61,8 @@ def _normalize_topic_name(topic_name: str) -> str:
     """Strip the optional ``/topics/`` prefix and validate what remains."""
     if not isinstance(topic_name, str) or not topic_name:
         raise ValueError("topic_name must be a non-empty string")
-    topic = topic_name.removeprefix(TOPIC_PREFIX)
-    if not TOPIC_NAME_PATTERN.fullmatch(topic):
+    topic = topic_name.removeprefix(_TOPIC_PREFIX)
+    if not _TOPIC_NAME_PATTERN.fullmatch(topic):
         raise ValueError(f"Malformed topic name: {topic_name!r}")
     return topic
 
@@ -234,7 +234,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             headers = await self.prepare_headers()
         except httpx.HTTPError as exc:
             reason = handle_topic_subscription_error(exc)
-            return TopicManagementResponse.from_error_reasons([reason] * len(device_tokens))
+            return TopicManagementResponse._from_error_reasons([reason] * len(device_tokens))
 
         async def manage_with_limit(device_token: str) -> t.Optional[str]:
             async with self._topic_management_semaphore:
@@ -251,7 +251,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 task.cancel()
             await asyncio.gather(*tasks.values(), return_exceptions=True)
             raise
-        return TopicManagementResponse.from_error_reasons(
+        return TopicManagementResponse._from_error_reasons(
             tasks[device_token].result() for device_token in device_tokens
         )
 
@@ -259,8 +259,9 @@ class AsyncFirebaseClient(AsyncClientBase):
         """
         Subscribes devices to the topic using the FCM v1 API.
 
-        One request is made per unique device token. HTTP failures, including authentication errors, are reported per
-        token in ``TopicManagementResponse.errors``. A device token that is already subscribed counts as a success.
+        One request is made per unique device token. HTTP failures such as ``401`` responses, timeouts and connection
+        errors are reported per token in ``TopicManagementResponse.errors``. A device token that is
+        already subscribed counts as a success.
 
         :param device_tokens: devices ids to be subscribed, up to 1000.
         :param topic_name: name of the topic, optionally prefixed with ``/topics/``.
@@ -273,8 +274,9 @@ class AsyncFirebaseClient(AsyncClientBase):
         """
         Unsubscribes devices from the topic using the FCM v1 API.
 
-        One request is made per unique device token. HTTP failures, including authentication errors, are reported per
-        token in ``TopicManagementResponse.errors``. A device token that is not subscribed counts as a success.
+        One request is made per unique device token. HTTP failures such as ``401`` responses, timeouts and connection
+        errors are reported per token in ``TopicManagementResponse.errors``. A device token that is
+        not subscribed counts as a success.
 
         :param device_tokens: devices ids to be unsubscribed, up to 1000.
         :param topic_name: name of the topic, optionally prefixed with ``/topics/``.

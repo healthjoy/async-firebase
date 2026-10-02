@@ -63,8 +63,8 @@ def test_topic_management_response_no_results():
 
 
 def test_topic_management_response_from_error_reasons():
-    """TopicManagementResponse.from_error_reasons() should count successes and keep the index of each failure."""
-    response = TopicManagementResponse.from_error_reasons([None, "UNREGISTERED", None, "INVALID_ARGUMENT"])
+    """TopicManagementResponse._from_error_reasons() should count successes and keep the index of each failure."""
+    response = TopicManagementResponse._from_error_reasons([None, "UNREGISTERED", None, "INVALID_ARGUMENT"])
 
     assert response.success_count == 2
     assert response.failure_count == 2
