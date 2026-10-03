@@ -1,13 +1,13 @@
 # Changelog
 
 ## 6.3.0
-Backward-compatible release: existing methods behave exactly as in 6.2.2.
+Backward-compatible release: existing methods behave as in 6.2.2, except that ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` now emit a ``DeprecationWarning``.
 
 * Add ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``, which manage topic subscriptions through the FCM v1 API (``/v1/projects/{project_id}/registrations/{token}/topicSubscriptions``), following [firebase-admin-python#980](https://github.com/firebase/firebase-admin-python/pull/980).
-  * One request is made per unique device token, with at most 100 in flight per client across concurrent calls (or ``RequestLimits.max_connections`` if lower). Duplicate device tokens are sent once; the outcome is reported at every index where the token appears.
-  * HTTP failures, including ``401 UNAUTHENTICATED``, timeouts and connection errors, are reported per device token in ``TopicManagementResponse.errors``; ``TopicManagementResponse.exception`` is not set by these methods. Reasons prefer the FCM error code (e.g. ``UNREGISTERED``), then the ``status`` field, then a plain string ``error`` field, then a code mapped from the HTTP status.
+  * One request is made per unique device token, with at most 100 in flight per call (or ``RequestLimits.max_connections`` if lower). Duplicate device tokens are sent once; the outcome is reported at every index where the token appears.
+  * HTTP failures, including ``401 UNAUTHENTICATED``, timeouts and connection errors, are reported per device token in ``TopicManagementResponse.errors``; ``TopicManagementResponse.exception`` is not set by these methods. Reasons prefer the FCM error code (e.g. ``UNREGISTERED``), then the ``status`` field, then a plain string ``error`` field, then a code mapped from the HTTP status; only non-empty string values are used, so a malformed error body falls back to the HTTP status instead of raising.
   * The access token is fetched once per call. If fetching it fails with an HTTP error, that reason is reported for every device token and no subscription requests are sent. If an unexpected, non-HTTP error occurs, the remaining requests are cancelled before the error is raised.
-  * Subscribing a device token that is already subscribed (``409`` resolving to ``ALREADY_EXISTS`` or ``CONFLICT``) counts as a success; a ``409 ABORTED`` is reported as a failure. Unsubscribing a device token that is not subscribed counts as a success.
+  * Subscribing a device token that is already subscribed (HTTP ``409``, or a ``status`` of ``ALREADY_EXISTS`` or ``CONFLICT``) counts as a success, as in the official Firebase Admin SDKs. Unsubscribing a device token that is not subscribed counts as a success.
   * Arguments are validated and raise ``ValueError``: ``device_tokens`` must be a non-empty sequence of up to 1000 non-empty strings, and ``topic_name`` must match ``[a-zA-Z0-9-_.~%]+``, optionally prefixed with ``/topics/``.
 * Add ``async_firebase.client.TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS`` (``1000``), the device token limit of ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``, and ``AsyncClientBase.FCM_REGISTRATIONS_ENDPOINT``, the FCM v1 registrations endpoint they use.
 * Deprecate ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` in favor of ``subscribe_to_topic()`` and ``unsubscribe_from_topic()``. They still use the Instance ID API, behave as before, and now emit a ``DeprecationWarning``.

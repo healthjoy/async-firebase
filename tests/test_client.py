@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from unittest import mock
@@ -754,8 +755,23 @@ async def test_unsubscribe_from_topic(
         (
             "subscribe_to_topic",
             {"error": {"code": 409, "message": "Concurrent modification", "status": "ABORTED"}},
-            [TopicManagementErrorInfo(index=0, reason="ABORTED")],
+            [],
         ),
+        (
+            "subscribe_to_topic",
+            {
+                "error": {
+                    "code": 409,
+                    "message": "Already exists",
+                    "status": "ALREADY_EXISTS",
+                    "details": [
+                        {"@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError", "errorCode": "UNSPECIFIED_ERROR"}
+                    ],
+                }
+            },
+            [],
+        ),
+        ("subscribe_to_topic", {"error": {"code": 409, "status": ["ALREADY_EXISTS"]}}, []),
         ("unsubscribe_from_topic", None, [TopicManagementErrorInfo(index=0, reason="CONFLICT")]),
     ),
 )
@@ -855,6 +871,56 @@ async def test_topic_management_sends_one_request_per_unique_device_token(
         TopicManagementErrorInfo(index=0, reason="NOT_FOUND"),
         TopicManagementErrorInfo(index=2, reason="NOT_FOUND"),
     ]
+
+
+async def test_topic_management_malformed_error_status(
+    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(status_code=400, json={"error": {"code": 400, "status": ["INVALID_ARGUMENT"]}})
+
+    response = await fake_async_fcm_client_w_creds.subscribe_to_topic(
+        topic_name="test_topic", device_tokens=[fake_device_token]
+    )
+
+    assert response.errors == [TopicManagementErrorInfo(index=0, reason="INVALID_ARGUMENT")]
+
+
+async def test_topic_management_reuses_client_across_event_loops(fake_async_fcm_client_w_creds):
+    client = fake_async_fcm_client_w_creds
+    client._get_access_token = fake__get_access_token
+
+    async def send_without_network(method, url, headers, json_payload=None):
+        await asyncio.sleep(0)
+        return None
+
+    client._send_topic_subscription_request = send_without_network
+    device_tokens = [f"token-{index}" for index in range(_TOPIC_MANAGEMENT_MAX_CONCURRENCY + 50)]
+
+    async def job():
+        async with client:
+            response = await client.subscribe_to_topic(topic_name="test_topic", device_tokens=device_tokens)
+        return response.success_count
+
+    first_loop_count = await asyncio.to_thread(asyncio.run, job())
+    second_loop_count = await asyncio.to_thread(asyncio.run, job())
+
+    assert first_loop_count == second_loop_count == len(device_tokens)
+
+
+async def test_topic_management_does_not_log_device_tokens(
+    fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock, caplog
+):
+    fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
+    httpx_mock.add_response(json={})
+    device_token = "plain-device-token-1234567890"
+
+    with caplog.at_level(logging.DEBUG):
+        await fake_async_fcm_client_w_creds.subscribe_to_topic(topic_name="test_topic", device_tokens=[device_token])
+
+    library_messages = [record.getMessage() for record in caplog.records if not record.name.startswith("httpx")]
+    assert library_messages
+    assert not any(device_token in message for message in library_messages)
 
 
 async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):
@@ -980,7 +1046,7 @@ async def test_topic_management_invalid_arguments(
     "max_connections, calls, device_tokens_count, exp_max_in_flight",
     (
         (2, 1, 5, 2),
-        (2, 2, 5, 2),
+        (2, 2, 5, 4),
         (None, 1, _TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, _TOPIC_MANAGEMENT_MAX_CONCURRENCY),
         (500, 1, _TOPIC_MANAGEMENT_MAX_CONCURRENCY + 20, _TOPIC_MANAGEMENT_MAX_CONCURRENCY),
     ),

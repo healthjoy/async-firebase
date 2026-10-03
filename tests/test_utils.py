@@ -33,6 +33,7 @@ from async_firebase.responses import (
     handle_fcm_error,
     handle_fcm_response,
     handle_topic_subscription_error,
+    is_topic_already_subscribed_error,
 )
 from async_firebase.serialization import cleanup_firebase_message, remove_null_values
 from async_firebase.utils import join_url
@@ -610,3 +611,57 @@ class TestTopicSubscriptionErrorHandler:
     )
     def test_transport_errors(self, error, exp_reason):
         assert handle_topic_subscription_error(error) == exp_reason
+
+    @pytest.mark.parametrize(
+        "status_code, json_body, exp_reason",
+        (
+            (409, {"error": {"status": ["ALREADY_EXISTS"]}}, "CONFLICT"),
+            (400, {"error": {"status": 400}}, "INVALID_ARGUMENT"),
+            (
+                404,
+                {"error": {"status": "NOT_FOUND", "details": [{"@type": FCM_ERROR_TYPE_PREFIX, "errorCode": {"a": 1}}]}},
+                "NOT_FOUND",
+            ),
+        ),
+    )
+    def test_non_string_codes_are_ignored(self, status_code, json_body, exp_reason):
+        error = _make_http_status_error(status_code, json_body=json_body)
+        assert handle_topic_subscription_error(error) == exp_reason
+
+
+class TestTopicAlreadySubscribedError:
+    """Tests for detecting a subscribe request that failed only because the token is already subscribed."""
+
+    @pytest.mark.parametrize(
+        "status_code, json_body",
+        (
+            (409, None),
+            (409, {"error": {"status": "ABORTED"}}),
+            (
+                409,
+                {
+                    "error": {
+                        "status": "ALREADY_EXISTS",
+                        "details": [{"@type": FCM_ERROR_TYPE_PREFIX, "errorCode": "UNSPECIFIED_ERROR"}],
+                    }
+                },
+            ),
+            (400, {"error": {"status": "ALREADY_EXISTS"}}),
+            (400, {"error": {"status": "CONFLICT"}}),
+        ),
+    )
+    def test_already_subscribed(self, status_code, json_body):
+        error = _make_http_status_error(status_code, json_body=json_body, content=b"")
+        assert is_topic_already_subscribed_error(error)
+
+    @pytest.mark.parametrize(
+        "error",
+        (
+            _make_http_status_error(404, json_body={"error": {"status": "NOT_FOUND"}}),
+            _make_http_status_error(400, json_body={"error": {"status": ["ALREADY_EXISTS"]}}),
+            _make_http_status_error(400, content=b"Not JSON"),
+            httpx.ReadTimeout("Connection read timed out"),
+        ),
+    )
+    def test_not_already_subscribed(self, error):
+        assert not is_topic_already_subscribed_error(error)

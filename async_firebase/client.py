@@ -8,7 +8,6 @@ to authorize request which is being made to Firebase.
 import asyncio
 import collections
 import collections.abc
-import functools
 import re
 import typing as t
 import warnings
@@ -17,7 +16,7 @@ from urllib.parse import quote, urlencode
 import httpx
 
 from async_firebase.base import AsyncClientBase, RequestLimits, RequestTimeout  # noqa: F401
-from async_firebase.errors import AsyncFirebaseError, FcmErrorCode
+from async_firebase.errors import AsyncFirebaseError
 from async_firebase.messages import (
     AndroidConfig,
     APNSConfig,
@@ -28,7 +27,7 @@ from async_firebase.messages import (
     TopicManagementResponse,
     WebpushConfig,
 )
-from async_firebase.responses import handle_topic_subscription_error
+from async_firebase.responses import handle_topic_subscription_error, is_topic_already_subscribed_error
 from async_firebase.serialization import serialize_message
 from async_firebase.utils import join_url
 
@@ -38,7 +37,6 @@ TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS = 1000
 _TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
 _TOPIC_PREFIX = "/topics/"
 _TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
-_ALREADY_SUBSCRIBED_REASONS = frozenset({FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value})
 
 _ManageSubscription = t.Callable[[str, str, t.Dict[str, str]], t.Awaitable[t.Optional[str]]]
 
@@ -202,25 +200,27 @@ class AsyncFirebaseClient(AsyncClientBase):
         path = "/".join(quote(segment, safe="") for segment in (device_token, "topicSubscriptions", *parts))
         return f"{registrations_url}/{path}?{urlencode(params)}"
 
-    @functools.cached_property
-    def _topic_management_semaphore(self) -> asyncio.Semaphore:
+    def _topic_management_concurrency(self) -> int:
         max_connections = self._request_limits.max_connections
         if not max_connections:
-            return asyncio.Semaphore(_TOPIC_MANAGEMENT_MAX_CONCURRENCY)
-        return asyncio.Semaphore(min(_TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections))
+            return _TOPIC_MANAGEMENT_MAX_CONCURRENCY
+        return min(_TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections)
 
     async def _subscribe_device_to_topic(
         self, device_token: str, topic: str, headers: t.Dict[str, str]
     ) -> t.Optional[str]:
         url = self._topic_subscriptions_url(device_token, params={"topic_name": topic})
-        reason = await self._send_topic_subscription_request("POST", url, headers, json_payload={})
-        return None if reason in _ALREADY_SUBSCRIBED_REASONS else reason
+        error = await self._send_topic_subscription_request("POST", url, headers, json_payload={})
+        if error is None or is_topic_already_subscribed_error(error):
+            return None
+        return handle_topic_subscription_error(error)
 
     async def _unsubscribe_device_from_topic(
         self, device_token: str, topic: str, headers: t.Dict[str, str]
     ) -> t.Optional[str]:
         url = self._topic_subscriptions_url(device_token, topic, params={"allow_missing": "true"})
-        return await self._send_topic_subscription_request("DELETE", url, headers)
+        error = await self._send_topic_subscription_request("DELETE", url, headers)
+        return None if error is None else handle_topic_subscription_error(error)
 
     async def _manage_topic_subscriptions(
         self,
@@ -236,8 +236,11 @@ class AsyncFirebaseClient(AsyncClientBase):
             reason = handle_topic_subscription_error(exc)
             return TopicManagementResponse._from_error_reasons([reason] * len(device_tokens))
 
+        # Created per call: a semaphore binds to the event loop it first waits on, and a client may outlive a loop.
+        semaphore = asyncio.Semaphore(self._topic_management_concurrency())
+
         async def manage_with_limit(device_token: str) -> t.Optional[str]:
-            async with self._topic_management_semaphore:
+            async with semaphore:
                 return await manage_subscription(device_token, topic, headers)
 
         tasks = {

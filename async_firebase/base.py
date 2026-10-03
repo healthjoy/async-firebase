@@ -23,7 +23,6 @@ from async_firebase.responses import (
     handle_fcm_response,
     handle_topic_error,
     handle_topic_response,
-    handle_topic_subscription_error,
 )
 from async_firebase.utils import join_url
 
@@ -212,7 +211,7 @@ class AsyncClientBase:
         url: str,
         headers: t.Dict[str, str],
         json_payload: t.Optional[t.Dict[str, t.Any]] = None,
-    ) -> t.Optional[str]:
+    ) -> t.Optional[httpx.HTTPError]:
         """
         Sends a single FCM v1 topic subscription request for one device token.
 
@@ -220,9 +219,10 @@ class AsyncClientBase:
         :param url: topic subscription URL of the device token.
         :param headers: request headers shared by all device tokens of the call; a fresh ``X-Request-Id`` is set.
         :param json_payload: request JSON payload.
-        :return: ``None`` on success, otherwise the error reason.
+        :return: ``None`` on success, otherwise the HTTP error.
         """
-        logging.debug("Requesting %s %s, payload: %s", method, url, json_payload)
+        # The URL contains the device token, which must not end up in logs.
+        logging.debug("Requesting %s for a topic subscription", method)
         try:
             client = await self._get_client()
             raw_fcm_response: httpx.Response = await client.request(
@@ -233,7 +233,7 @@ class AsyncClientBase:
             )
             raw_fcm_response.raise_for_status()
         except httpx.HTTPError as exc:
-            return handle_topic_subscription_error(exc)
+            return exc
         logging.debug(
             "Response Code: %s, Time spent to make a request: %s",
             raw_fcm_response.status_code,

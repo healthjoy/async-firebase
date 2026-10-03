@@ -2,7 +2,7 @@
 
 All HTTP-to-domain-error resolution and response parsing lives here.
 The three lookup dictionaries, resolution chain, and JSON parsing are
-internal implementation details. Callers use the five typed public functions.
+internal implementation details. Callers use the six typed public functions.
 """
 
 import logging
@@ -156,6 +156,11 @@ def _get_error_field(response: httpx.Response) -> t.Any:
     return body.get("error") if isinstance(body, dict) else None
 
 
+def _as_code(value: t.Any) -> t.Optional[str]:
+    """Return ``value`` if it is a non-empty string, which is the only usable shape for an error code."""
+    return value if isinstance(value, str) and value else None
+
+
 def _find_fcm_error_code(error_data: dict) -> t.Optional[str]:
     """Return the FCM error code from ``details``, tolerating malformed entries.
 
@@ -167,11 +172,11 @@ def _find_fcm_error_code(error_data: dict) -> t.Optional[str]:
         return None
     for detail in details:
         if isinstance(detail, dict) and detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
-            return detail.get("errorCode")
+            return _as_code(detail.get("errorCode"))
     return None
 
 
-# ── Public API: 5 typed functions ──────────────────────────────────
+# ── Public API: 6 typed functions ──────────────────────────────────
 
 
 def handle_fcm_response(response: httpx.Response) -> FCMResponse:
@@ -203,14 +208,27 @@ def handle_topic_subscription_error(error: httpx.HTTPError) -> str:
         return _handle_request_error(error).code
 
     error_field = _get_error_field(error.response)
-    if isinstance(error_field, str) and error_field:
-        return error_field
     error_data = error_field if isinstance(error_field, dict) else {}
     return (
-        _find_fcm_error_code(error_data)
-        or error_data.get("status")
+        _as_code(error_field)
+        or _find_fcm_error_code(error_data)
+        or _as_code(error_data.get("status"))
         or _HTTP_STATUS_TO_ERROR_CODE.get(error.response.status_code, FcmErrorCode.UNKNOWN.value)
     )
+
+
+def is_topic_already_subscribed_error(error: httpx.HTTPError) -> bool:
+    """Tell whether a subscribe request failed only because the device token is already subscribed.
+
+    Matches the official Firebase Admin SDKs: any HTTP 409, or a ``status`` of ``ALREADY_EXISTS`` or ``CONFLICT``.
+    """
+    if not isinstance(error, httpx.HTTPStatusError):
+        return False
+    if error.response.status_code == httpx.codes.CONFLICT:
+        return True
+    error_field = _get_error_field(error.response)
+    status = _as_code(error_field.get("status")) if isinstance(error_field, dict) else None
+    return status in {FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value}
 
 
 # ── Backward-compatible handler classes ────────────────────────────
