@@ -2,9 +2,13 @@ import json
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from faker import Faker
+
+from async_firebase.client import AsyncFirebaseClient
+from tests.integration import SERVICE_ACCOUNT_PATH
 
 
 @pytest.fixture()
@@ -43,3 +47,12 @@ def fake_service_account_file(fake_service_account, faker_):
         json.dump(fake_service_account, outfile)
     yield file_name
     file_name.unlink()
+
+
+@pytest_asyncio.fixture()
+async def fcm_client():
+    """A client authenticated against the real FCM project, for integration tests."""
+    client = AsyncFirebaseClient()
+    client.creds_from_service_account_file(SERVICE_ACCOUNT_PATH)
+    async with client:
+        yield client
