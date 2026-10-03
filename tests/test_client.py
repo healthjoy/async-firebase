@@ -909,18 +909,20 @@ async def test_topic_management_reuses_client_across_event_loops(fake_async_fcm_
 
 
 async def test_topic_management_does_not_log_device_tokens(
-    fake_async_fcm_client_w_creds, httpx_mock: HTTPXMock, caplog
+    fake_async_fcm_client_w_creds, fake_device_token, httpx_mock: HTTPXMock, caplog
 ):
     fake_async_fcm_client_w_creds._get_access_token = fake__get_access_token
     httpx_mock.add_response(json={})
-    device_token = "plain-device-token-1234567890"
 
     with caplog.at_level(logging.DEBUG):
-        await fake_async_fcm_client_w_creds.subscribe_to_topic(topic_name="test_topic", device_tokens=[device_token])
+        await fake_async_fcm_client_w_creds.subscribe_to_topic(
+            topic_name="test_topic", device_tokens=[fake_device_token]
+        )
 
     library_messages = [record.getMessage() for record in caplog.records if not record.name.startswith("httpx")]
     assert library_messages
-    assert not any(device_token in message for message in library_messages)
+    for token_form in (fake_device_token, quote(fake_device_token, safe="")):
+        assert not any(token_form in message for message in library_messages)
 
 
 async def test_topic_management_stops_all_requests_on_unexpected_error(fake_async_fcm_client_w_creds):

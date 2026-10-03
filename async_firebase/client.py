@@ -24,6 +24,7 @@ from async_firebase.messages import (
     FCMResponse,
     Message,
     MulticastMessage,
+    TopicManagementErrorInfo,
     TopicManagementResponse,
     WebpushConfig,
 )
@@ -53,6 +54,22 @@ def _validate_device_tokens(device_tokens: t.Sequence[str]) -> None:
             f"Can not manage topic subscriptions for more than {TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS} device tokens "
             "in a single call"
         )
+
+
+def _topic_management_response(reasons: t.Iterable[t.Optional[str]]) -> TopicManagementResponse:
+    """
+    Build a response from per-token outcomes.
+
+    :param reasons: one entry per device token, in request order: ``None`` on success, the error reason otherwise.
+    """
+    response = TopicManagementResponse()
+    for index, reason in enumerate(reasons):
+        if reason is None:
+            response.success_count += 1
+        else:
+            response.failure_count += 1
+            response.errors.append(TopicManagementErrorInfo(index, reason))
+    return response
 
 
 def _normalize_topic_name(topic_name: str) -> str:
@@ -234,7 +251,7 @@ class AsyncFirebaseClient(AsyncClientBase):
             headers = await self.prepare_headers()
         except httpx.HTTPError as exc:
             reason = handle_topic_subscription_error(exc)
-            return TopicManagementResponse._from_error_reasons([reason] * len(device_tokens))
+            return _topic_management_response([reason] * len(device_tokens))
 
         # Created per call: a semaphore binds to the event loop it first waits on, and a client may outlive a loop.
         semaphore = asyncio.Semaphore(self._topic_management_concurrency())
@@ -254,9 +271,7 @@ class AsyncFirebaseClient(AsyncClientBase):
                 task.cancel()
             await asyncio.gather(*tasks.values(), return_exceptions=True)
             raise
-        return TopicManagementResponse._from_error_reasons(
-            tasks[device_token].result() for device_token in device_tokens
-        )
+        return _topic_management_response(tasks[device_token].result() for device_token in device_tokens)
 
     async def subscribe_to_topic(self, device_tokens: t.Sequence[str], topic_name: str) -> TopicManagementResponse:
         """

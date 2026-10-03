@@ -926,22 +926,6 @@ class TopicManagementResponse:
         if self.resp:
             self._handle_response(self.resp)
 
-    @classmethod
-    def _from_error_reasons(cls, reasons: t.Iterable[t.Optional[str]]) -> "TopicManagementResponse":
-        """
-        Build a response from per-token outcomes.
-
-        :param reasons: one entry per device token, in request order: ``None`` on success, the error reason otherwise.
-        """
-        response = cls()
-        for index, reason in enumerate(reasons):
-            if reason is None:
-                response.success_count += 1
-            else:
-                response.failure_count += 1
-                response.errors.append(TopicManagementErrorInfo(index, reason))
-        return response
-
     def _handle_response(self, resp: httpx.Response):
         response = resp.json()
         results = response.get("results")
