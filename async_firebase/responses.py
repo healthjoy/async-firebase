@@ -2,7 +2,7 @@
 
 All HTTP-to-domain-error resolution and response parsing lives here.
 The three lookup dictionaries, resolution chain, and JSON parsing are
-internal implementation details. Callers use the four typed public functions.
+internal implementation details. Callers use the six typed public functions.
 """
 
 import logging
@@ -147,7 +147,36 @@ def _resolve_exception(error: httpx.HTTPError) -> AsyncFirebaseError:
     )
 
 
-# ── Public API: 4 typed functions ──────────────────────────────────
+def _get_error_field(response: httpx.Response) -> t.Any:
+    """Return the ``error`` field of a JSON error body, or ``None`` when the body is not a JSON object."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body.get("error") if isinstance(body, dict) else None
+
+
+def _as_code(value: t.Any) -> t.Optional[str]:
+    """Return ``value`` if it is a non-empty string, which is the only usable shape for an error code."""
+    return value if isinstance(value, str) and value else None
+
+
+def _find_fcm_error_code(error_data: dict) -> t.Optional[str]:
+    """Return the FCM error code from ``details``, tolerating malformed entries.
+
+    Deliberately separate from ``_get_fcm_error_type``: sharing this lenient lookup would change how ``send()``
+    handles malformed error bodies.
+    """
+    details = error_data.get("details")
+    if not isinstance(details, list):
+        return None
+    for detail in details:
+        if isinstance(detail, dict) and detail.get("@type") == FCM_ERROR_TYPE_PREFIX:
+            return _as_code(detail.get("errorCode"))
+    return None
+
+
+# ── Public API: 6 typed functions ──────────────────────────────────
 
 
 def handle_fcm_response(response: httpx.Response) -> FCMResponse:
@@ -168,6 +197,38 @@ def handle_topic_response(response: httpx.Response) -> TopicManagementResponse:
 def handle_topic_error(error: httpx.HTTPError) -> TopicManagementResponse:
     """Turn any httpx error into a TopicManagementResponse (with .exception set)."""
     return TopicManagementResponse(exception=_resolve_exception(error))
+
+
+def handle_topic_subscription_error(error: httpx.HTTPError) -> str:
+    """Turn an httpx error from an FCM v1 topic subscription request into a per-token error reason.
+
+    Malformed error bodies never raise; they fall back to a reason derived from the HTTP status.
+    """
+    if not isinstance(error, httpx.HTTPStatusError):
+        return _handle_request_error(error).code
+
+    error_field = _get_error_field(error.response)
+    error_data = error_field if isinstance(error_field, dict) else {}
+    return (
+        _as_code(error_field)
+        or _find_fcm_error_code(error_data)
+        or _as_code(error_data.get("status"))
+        or _HTTP_STATUS_TO_ERROR_CODE.get(error.response.status_code, FcmErrorCode.UNKNOWN.value)
+    )
+
+
+def is_topic_already_subscribed_error(error: httpx.HTTPError) -> bool:
+    """Tell whether a subscribe request failed only because the device token is already subscribed.
+
+    Matches the official Firebase Admin SDKs: any HTTP 409, or a ``status`` of ``ALREADY_EXISTS`` or ``CONFLICT``.
+    """
+    if not isinstance(error, httpx.HTTPStatusError):
+        return False
+    if error.response.status_code == httpx.codes.CONFLICT:
+        return True
+    error_field = _get_error_field(error.response)
+    status = _as_code(error_field.get("status")) if isinstance(error_field, dict) else None
+    return status in {FcmErrorCode.ALREADY_EXISTS.value, FcmErrorCode.CONFLICT.value}
 
 
 # ── Backward-compatible handler classes ────────────────────────────

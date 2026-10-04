@@ -7,7 +7,13 @@ to authorize request which is being made to Firebase.
 
 import asyncio
 import collections
+import collections.abc
+import re
 import typing as t
+import warnings
+from urllib.parse import quote, urlencode
+
+import httpx
 
 from async_firebase.base import AsyncClientBase, RequestLimits, RequestTimeout  # noqa: F401
 from async_firebase.errors import AsyncFirebaseError
@@ -18,13 +24,62 @@ from async_firebase.messages import (
     FCMResponse,
     Message,
     MulticastMessage,
+    TopicManagementErrorInfo,
     TopicManagementResponse,
     WebpushConfig,
 )
+from async_firebase.responses import handle_topic_subscription_error, is_topic_already_subscribed_error
 from async_firebase.serialization import serialize_message
+from async_firebase.utils import join_url
 
 
 BATCH_MAX_MESSAGES = MULTICAST_MESSAGE_MAX_DEVICE_TOKENS = 500
+TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS = 1000
+_TOPIC_MANAGEMENT_MAX_CONCURRENCY = 100
+_TOPIC_PREFIX = "/topics/"
+_TOPIC_NAME_PATTERN = re.compile(r"[a-zA-Z0-9_.~%-]+")
+
+_ManageSubscription = t.Callable[[str, str, t.Dict[str, str]], t.Awaitable[t.Optional[str]]]
+
+
+def _validate_device_tokens(device_tokens: t.Sequence[str]) -> None:
+    if isinstance(device_tokens, str) or not isinstance(device_tokens, collections.abc.Sequence):
+        raise ValueError("device_tokens must be a sequence of strings")
+    if not device_tokens:
+        raise ValueError("device_tokens must not be empty")
+    if not all(isinstance(device_token, str) and device_token for device_token in device_tokens):
+        raise ValueError("device_tokens must contain only non-empty strings")
+    if len(device_tokens) > TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS:
+        raise ValueError(
+            f"Can not manage topic subscriptions for more than {TOPIC_MANAGEMENT_MAX_DEVICE_TOKENS} device tokens "
+            "in a single call"
+        )
+
+
+def _topic_management_response(reasons: t.Iterable[t.Optional[str]]) -> TopicManagementResponse:
+    """
+    Build a response from per-token outcomes.
+
+    :param reasons: one entry per device token, in request order: ``None`` on success, the error reason otherwise.
+    """
+    response = TopicManagementResponse()
+    for index, reason in enumerate(reasons):
+        if reason is None:
+            response.success_count += 1
+        else:
+            response.failure_count += 1
+            response.errors.append(TopicManagementErrorInfo(index, reason))
+    return response
+
+
+def _normalize_topic_name(topic_name: str) -> str:
+    """Strip the optional ``/topics/`` prefix and validate what remains."""
+    if not isinstance(topic_name, str) or not topic_name:
+        raise ValueError("topic_name must be a non-empty string")
+    topic = topic_name.removeprefix(_TOPIC_PREFIX)
+    if not _TOPIC_NAME_PATTERN.fullmatch(topic):
+        raise ValueError(f"Malformed topic name: {topic_name!r}")
+    return topic
 
 
 class AsyncFirebaseClient(AsyncClientBase):
@@ -154,14 +209,115 @@ class AsyncFirebaseClient(AsyncClientBase):
             extra_headers=self.IID_HEADERS,
         )
 
+    def _topic_subscriptions_url(self, device_token: str, *parts: str, params: t.Dict[str, str]) -> str:
+        registrations_url = join_url(
+            self.BASE_URL, self.FCM_REGISTRATIONS_ENDPOINT.format(project_id=self._credentials.project_id)
+        )
+        # Not join_url: it leaves "/" unescaped, which would let a device token change the request path.
+        path = "/".join(quote(segment, safe="") for segment in (device_token, "topicSubscriptions", *parts))
+        return f"{registrations_url}/{path}?{urlencode(params)}"
+
+    def _topic_management_concurrency(self) -> int:
+        max_connections = self._request_limits.max_connections
+        if not max_connections:
+            return _TOPIC_MANAGEMENT_MAX_CONCURRENCY
+        return min(_TOPIC_MANAGEMENT_MAX_CONCURRENCY, max_connections)
+
+    async def _subscribe_device_to_topic(
+        self, device_token: str, topic: str, headers: t.Dict[str, str]
+    ) -> t.Optional[str]:
+        url = self._topic_subscriptions_url(device_token, params={"topic_name": topic})
+        error = await self._send_topic_subscription_request("POST", url, headers, json_payload={})
+        if error is None or is_topic_already_subscribed_error(error):
+            return None
+        return handle_topic_subscription_error(error)
+
+    async def _unsubscribe_device_from_topic(
+        self, device_token: str, topic: str, headers: t.Dict[str, str]
+    ) -> t.Optional[str]:
+        url = self._topic_subscriptions_url(device_token, topic, params={"allow_missing": "true"})
+        error = await self._send_topic_subscription_request("DELETE", url, headers)
+        return None if error is None else handle_topic_subscription_error(error)
+
+    async def _manage_topic_subscriptions(
+        self,
+        manage_subscription: _ManageSubscription,
+        device_tokens: t.Sequence[str],
+        topic_name: str,
+    ) -> TopicManagementResponse:
+        _validate_device_tokens(device_tokens)
+        topic = _normalize_topic_name(topic_name)
+        try:
+            headers = await self.prepare_headers()
+        except httpx.HTTPError as exc:
+            reason = handle_topic_subscription_error(exc)
+            return _topic_management_response([reason] * len(device_tokens))
+
+        # Created per call: a semaphore binds to the event loop it first waits on, and a client may outlive a loop.
+        semaphore = asyncio.Semaphore(self._topic_management_concurrency())
+
+        async def manage_with_limit(device_token: str) -> t.Optional[str]:
+            async with semaphore:
+                return await manage_subscription(device_token, topic, headers)
+
+        tasks = {
+            device_token: asyncio.create_task(manage_with_limit(device_token))
+            for device_token in dict.fromkeys(device_tokens)
+        }
+        try:
+            await asyncio.gather(*tasks.values())
+        except Exception:
+            for task in tasks.values():
+                task.cancel()
+            await asyncio.gather(*tasks.values(), return_exceptions=True)
+            raise
+        return _topic_management_response(tasks[device_token].result() for device_token in device_tokens)
+
+    async def subscribe_to_topic(self, device_tokens: t.Sequence[str], topic_name: str) -> TopicManagementResponse:
+        """
+        Subscribes devices to the topic using the FCM v1 API.
+
+        One request is made per unique device token. HTTP failures such as ``401`` responses, timeouts and connection
+        errors are reported per token in ``TopicManagementResponse.errors``. A device token that is
+        already subscribed counts as a success.
+
+        :param device_tokens: devices ids to be subscribed, up to 1000.
+        :param topic_name: name of the topic, optionally prefixed with ``/topics/``.
+        :raises: ValueError if the device tokens or the topic name are invalid.
+        :returns: Instance of messages.TopicManagementResponse.
+        """
+        return await self._manage_topic_subscriptions(self._subscribe_device_to_topic, device_tokens, topic_name)
+
+    async def unsubscribe_from_topic(self, device_tokens: t.Sequence[str], topic_name: str) -> TopicManagementResponse:
+        """
+        Unsubscribes devices from the topic using the FCM v1 API.
+
+        One request is made per unique device token. HTTP failures such as ``401`` responses, timeouts and connection
+        errors are reported per token in ``TopicManagementResponse.errors``. A device token that is
+        not subscribed counts as a success.
+
+        :param device_tokens: devices ids to be unsubscribed, up to 1000.
+        :param topic_name: name of the topic, optionally prefixed with ``/topics/``.
+        :raises: ValueError if the device tokens or the topic name are invalid.
+        :returns: Instance of messages.TopicManagementResponse.
+        """
+        return await self._manage_topic_subscriptions(self._unsubscribe_device_from_topic, device_tokens, topic_name)
+
     async def subscribe_devices_to_topic(self, device_tokens: t.List[str], topic_name: str) -> TopicManagementResponse:
         """
-        Subscribes devices to the topic.
+        Subscribes devices to the topic using the legacy Instance ID API.
+
+        Deprecated. Use ``subscribe_to_topic`` instead.
 
         :param device_tokens: devices ids to be subscribed.
         :param topic_name: name of the topic.
         :returns: Instance of messages.TopicManagementResponse.
         """
+        warnings.warn(
+            "subscribe_devices_to_topic is deprecated. Use subscribe_to_topic instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._make_topic_management_request(
             device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_ADD_ACTION
         )
@@ -170,12 +326,19 @@ class AsyncFirebaseClient(AsyncClientBase):
         self, device_tokens: t.List[str], topic_name: str
     ) -> TopicManagementResponse:
         """
-        Unsubscribes devices from the topic.
+        Unsubscribes devices from the topic using the legacy Instance ID API.
+
+        Deprecated. Use ``unsubscribe_from_topic`` instead.
 
         :param device_tokens: devices ids to be unsubscribed.
         :param topic_name: name of the topic.
         :returns: Instance of messages.TopicManagementResponse.
         """
+        warnings.warn(
+            "unsubscribe_devices_from_topic is deprecated. Use unsubscribe_from_topic instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return await self._make_topic_management_request(
             device_tokens=device_tokens, topic_name=topic_name, action=self.TOPIC_REMOVE_ACTION
         )

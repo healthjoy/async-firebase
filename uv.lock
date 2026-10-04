@@ -86,7 +86,7 @@ wheels = [
 
 [[package]]
 name = "async-firebase"
-version = "6.2.2"
+version = "6.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "google-auth" },

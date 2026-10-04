@@ -102,7 +102,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-      - name: Run FCM payload validation tests
+      - name: Run FCM integration tests
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY_JSON }}
         run: |

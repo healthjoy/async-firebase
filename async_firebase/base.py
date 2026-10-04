@@ -32,6 +32,7 @@ class AsyncClientBase:
 
     BASE_URL: str = "https://fcm.googleapis.com"
     FCM_ENDPOINT: str = "/v1/projects/{project_id}/messages:send"
+    FCM_REGISTRATIONS_ENDPOINT: str = "/v1/projects/{project_id}/registrations"
     IID_URL = "https://iid.googleapis.com"
     IID_HEADERS = {"access_token_auth": "true"}
     TOPIC_ADD_ACTION = "iid/v1:batchAdd"
@@ -203,6 +204,42 @@ class AsyncClientBase:
                 raw_fcm_response.elapsed,
             )
             return handle_topic_response(raw_fcm_response)
+
+    async def _send_topic_subscription_request(
+        self,
+        method: str,
+        url: str,
+        headers: t.Dict[str, str],
+        json_payload: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> t.Optional[httpx.HTTPError]:
+        """
+        Sends a single FCM v1 topic subscription request for one device token.
+
+        :param method: HTTP method, ``POST`` to subscribe or ``DELETE`` to unsubscribe.
+        :param url: topic subscription URL of the device token.
+        :param headers: request headers shared by all device tokens of the call; a fresh ``X-Request-Id`` is set.
+        :param json_payload: request JSON payload.
+        :return: ``None`` on success, otherwise the HTTP error.
+        """
+        # The URL contains the device token, which must not end up in logs.
+        logging.debug("Requesting %s for a topic subscription", method)
+        try:
+            client = await self._get_client()
+            raw_fcm_response: httpx.Response = await client.request(
+                method,
+                url,
+                json=json_payload,
+                headers={**headers, "X-Request-Id": self.get_request_id()},
+            )
+            raw_fcm_response.raise_for_status()
+        except httpx.HTTPError as exc:
+            return exc
+        logging.debug(
+            "Response Code: %s, Time spent to make a request: %s",
+            raw_fcm_response.status_code,
+            raw_fcm_response.elapsed,
+        )
+        return None
 
     async def send_fcm_request(
         self,
