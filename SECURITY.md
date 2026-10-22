@@ -12,7 +12,7 @@ As of April 10, 2026:
 
 ## Supported Python Versions
 
-This library supports Python 3.10 through 3.14. Security fixes will only be tested and released against these versions.
+This library supports Python 3.10 through 3.15. Security fixes will only be tested and released against these versions.
 
 ## Reporting a Vulnerability
 
