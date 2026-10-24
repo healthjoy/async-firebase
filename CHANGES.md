@@ -1,5 +1,8 @@
 # Changelog
 
+## 6.4.0
+* Add support of **Python 3.15**.
+
 ## 6.3.0
 Backward-compatible release: existing methods behave as in 6.2.2, except that ``subscribe_devices_to_topic()`` and ``unsubscribe_devices_from_topic()`` now emit a ``DeprecationWarning``.
 
